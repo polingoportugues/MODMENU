@@ -192,7 +192,7 @@ sliderCorner.CornerRadius = UDim.new(0, 10)
 
 local sliderButton = Instance.new("TextButton", sliderFrame)
 sliderButton.Size = UDim2.new(0, 20, 1, 0)
-sliderButton.Position = UDim2.new((speedValue - 16) / (500 - 16), -10, 0, 0)
+sliderButton.Position = UDim2.new((speedValue - 16) / (50000 - 16), -10, 0, 0)
 sliderButton.Text = ""
 sliderButton.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
 sliderButton.BorderSizePixel = 0
@@ -220,7 +220,7 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
         local relativeX = math.clamp((input.Position.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
         
         -- Calcular velocidade (16 a 200)
-        local novaVelocidade = math.floor(16 + (relativeX * (5000 - 16)))
+        local novaVelocidade = math.floor(16 + (relativeX * (50000 - 16)))
         
         -- Atualizar posição do botão
         sliderButton.Position = UDim2.new(relativeX, -10, 0, 0)
