@@ -1,6 +1,7 @@
 -- Speed Multiplier - Sistema de Multiplicador de Velocidade
 -- Detecta a velocidade atual e multiplica por um valor configurável
 -- Criado por KDML
+-- VERSÃO CORRIGIDA: Não cria loop próprio, sincroniza com GUI
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -10,13 +11,13 @@ local Player = Players.LocalPlayer
 -- _G.speedMultiplier = multiplicador de velocidade (ex: 2, 5, 10, 100)
 -- _G.speedToggleAtivo = se o multiplicador está ativo
 
-local speedConnection = nil
 local velocidadeBase = 16 -- Velocidade padrão do Roblox
 
 -- Função para detectar a velocidade base real do jogo
 local function detectarVelocidadeBase(humanoid)
+    if not humanoid then return 16 end
+    
     -- Tentar detectar a velocidade original do jogo
-    -- Alguns jogos usam velocidades diferentes de 16
     local velocidadeAtual = humanoid.WalkSpeed
     
     -- Se a velocidade atual for muito alta (já multiplicada), usar padrão
@@ -29,7 +30,7 @@ local function detectarVelocidadeBase(humanoid)
     return velocidadeAtual
 end
 
--- Função para aplicar multiplicador no personagem
+-- Função para aplicar multiplicador no personagem (CHAMADA PELA GUI)
 local function aplicarMultiplicador(character)
     if not character then return end
     
@@ -51,60 +52,15 @@ local function aplicarMultiplicador(character)
     humanoid.WalkSpeed = velocidadeMultiplicada
     print("✅ Multiplicador aplicado: x" .. _G.speedMultiplier .. " | Velocidade: " .. velocidadeOriginal .. " → " .. velocidadeMultiplicada)
     
-    -- Desconectar conexão anterior se existir
-    if speedConnection then
-        speedConnection:Disconnect()
-    end
-    
-    -- Manter multiplicador constantemente ativo
-    speedConnection = RunService.Heartbeat:Connect(function()
-        -- Verificar se o personagem ainda existe
-        if not character.Parent or not humanoid.Parent then
-            if speedConnection then
-                speedConnection:Disconnect()
-                speedConnection = nil
-            end
-            return
-        end
-        
-        -- Verificar se o toggle está ativo
-        if _G.speedToggleAtivo == false then
-            -- CORREÇÃO: Restaurar velocidade base ANTES de desconectar
-            humanoid.WalkSpeed = velocidadeBase
-            print("ℹ️ Multiplicador desativado - Velocidade restaurada para:", velocidadeBase)
-            
-            -- Agora sim, desconectar o loop
-            if speedConnection then
-                speedConnection:Disconnect()
-                speedConnection = nil
-            end
-            return
-        end
-        
-        -- Recalcular velocidade multiplicada (caso o multiplicador tenha mudado)
-        local novaVelocidade = velocidadeBase * _G.speedMultiplier
-        
-        -- Aplicar se mudou
-        if humanoid.WalkSpeed ~= novaVelocidade then
-            humanoid.WalkSpeed = novaVelocidade
-            print("⚡ Velocidade atualizada: x" .. _G.speedMultiplier .. " = " .. novaVelocidade)
-        end
-    end)
-    
-    -- Limpar conexão quando morrer
-    humanoid.Died:Connect(function()
-        if speedConnection then
-            speedConnection:Disconnect()
-            speedConnection = nil
-        end
-    end)
+    -- NÃO CRIAR LOOP AQUI - A GUI JÁ TEM UM LOOP ATIVO
+    -- Isso evita conflito entre os dois sistemas
 end
 
 -- Função global para desativar o multiplicador (chamada pela GUI)
 _G.desativarMultiplicadorGitHub = function()
-    print("🔄 Desativando multiplicador GitHub...")
+    print("🔄 Restaurando velocidade base do GitHub...")
     
-    -- CORREÇÃO: Restaurar velocidade ANTES de desconectar
+    -- Apenas restaurar a velocidade base
     local character = Player.Character
     if character then
         local humanoid = character:FindFirstChildOfClass("Humanoid")
@@ -114,14 +70,7 @@ _G.desativarMultiplicadorGitHub = function()
         end
     end
     
-    -- Agora desconectar o loop
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-        print("🔌 Conexão desconectada")
-    end
-    
-    print("❌ Multiplicador GitHub desativado completamente")
+    print("❌ Multiplicador GitHub desativado")
 end
 
 -- Função global para atualizar velocidade base (chamada quando o jogo muda)
@@ -130,27 +79,43 @@ _G.atualizarVelocidadeBase = function(novaBase)
     print("🔄 Velocidade base atualizada para:", velocidadeBase)
 end
 
--- Aplicar no personagem atual
-if Player.Character then
-    aplicarMultiplicador(Player.Character)
-end
-
--- Aplicar em novos personagens (quando respawnar)
-Player.CharacterAdded:Connect(function(character)
-    -- Só aplicar se o toggle estiver ativo
-    if _G.speedToggleAtivo ~= false then
-        task.wait(0.2) -- Pequeno delay para garantir que o personagem carregou
-        aplicarMultiplicador(character)
-    else
-        -- CORREÇÃO: Se toggle estiver desativado, garantir velocidade base
-        task.wait(0.2)
+-- Função global para detectar e retornar velocidade base (usada pela GUI)
+_G.detectarVelocidadeBaseGitHub = function()
+    local character = Player.Character
+    if character then
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
-            humanoid.WalkSpeed = velocidadeBase
-            print("✅ Novo personagem spawnou com velocidade base:", velocidadeBase)
+            local velocidade = detectarVelocidadeBase(humanoid)
+            print("🔍 Velocidade base detectada:", velocidade)
+            return velocidade
         end
+    end
+    return 16
+end
+
+-- NÃO aplicar automaticamente - deixar a GUI controlar
+-- A GUI já tem um loop Heartbeat que controla a velocidade
+
+-- Apenas sincronizar evento de respawn
+Player.CharacterAdded:Connect(function(character)
+    task.wait(0.2)
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+    
+    -- Detectar velocidade base do novo personagem
+    detectarVelocidadeBase(humanoid)
+    
+    -- Se toggle estiver ativo, a GUI vai reaplicar automaticamente
+    -- Se toggle estiver desativado, garantir velocidade base
+    if _G.speedToggleAtivo == false then
+        humanoid.WalkSpeed = velocidadeBase
+        print("✅ Novo personagem spawnou com velocidade base:", velocidadeBase)
+    else
+        print("ℹ️ Toggle ativo - GUI vai aplicar multiplicador")
     end
 end)
 
-print("🚀 Speed Multiplier GitHub carregado e sincronizado com GUI!")
-print("📊 Sistema de multiplicador ativo - Detecta velocidade base automaticamente")
+print("🚀 Speed Multiplier GitHub carregado (Modo sincronizado com GUI)")
+print("📊 Sistema preparado - Loop controlado pela GUI")
+print("⚙️ Este script apenas fornece funções auxiliares e detecção de velocidade base")
