@@ -1,30 +1,123 @@
---[[
-    KDML Security System
-    Protection Level: MAXIMUM
-    Anti-Deobfuscation: ENABLED
-    Anti-Debug: ENABLED
-    Runtime Encryption: ENABLED
-]]
+-- Obfuscated Speed System by KDML
+-- Protection: Medium (Functional)
 
-local _={string.byte,string.char,string.sub,table.concat,table.insert,math.floor,getfenv,setfenv,loadstring,pcall,type,game,rawget,rawset}
-local __=function(___,____)return _[1](___,____,____)end
-local ___=function(____)local _____={}for ______=1,#____do _____[______]=_[2](____[______])end return _[4](_____)end
-local ____=function(_____,______)return _[3](_____,______,______)end
-local _____=function(______)local _______,________={},{}for _________=1,#______ do _______[_________]=__(______,_________)-42 end for _________=1,#_______do ________[_________]=_[2](_______[_________])end return _[4](________)end
-local ______=function(_______)return _[9](_______)()end
-local _______=_[7]()
-local ________={_____("NBQWN"),_____("FVQHQUIQCJZUBN"),_____("IRJBQNQBWN"),_____("JOBFBJPNF"),_____("OVRBQWOU"),_____("HBQYGMNNO"),_____("ONBFPCNBP"),_____("KONNOTQNBJPWSR"),_____("KONCNOMVQPWKQWNF"),_____("JMMNM"),_____("HBWP"),_____("FVQQNJP"),_____("JOUMONKWFGPJQBGGMRLJQBGG"),_____("SNONMQWMBBMNMNJOBNPNOBJPBOONPNJPBMB"),_____("JOBNPWSBFRVQPWKQWJBORFWPTOV"),_____("MNONPNJPWSBFRVQPWKQWJBORFWPTOV"),_____("BPVBQWZBFRVQPWKQWJBORFWPTOV"),_____("SNQRJWMBONBONNPNOJBMB"),_____("MNONPNJPBFSNQRJWMBONOBGNFWPTOV")}
-local _________=_[12]:GetService(________[1])
-local __________=_[12]:GetService(________[2])
-local ___________=_________[________[3]]
-local ____________,_____________,______________=nil,16,false
-local _______________=function()local ________________=___________[________[4]]if not ________________ then return _____________end local _________________=________________:FindFirstChildOfClass(________[5])if not _________________then return _____________end local __________________=_________________[________[6]]if __________________>50 then return _____________end _____________=___________________[13](_[7](),________[18],__________________)return __________________end
-local ___________________=function()if ______________then return end ______________=true if ____________then ____________:Disconnect()____________=nil end _______________()____________=__________[________[7]]:Connect(function()local ____________________=___________[________[4]]if not ____________________then return end local _____________________=____________________:FindFirstChildOfClass(________[5])if not _____________________then return end local ______________________=_[13](_[7](),________[8])if ______________________then local _______________________=_[13](_[7](),________[9])or 1 local ________________________=_____________*_______________________if _____________________[________[6]]~=________________________then _____________________[________[6]]=________________________end else if _____________________[________[6]]~=_____________then _____________________[________[6]]=_____________end end end)end
-_[13](_[7](),________[14],function()if not ______________then ___________________()end local _________________________=___________[________[4]]if _________________________then local __________________________=_________________________:FindFirstChildOfClass(________[5])if __________________________then local ___________________________=_[13](_[7](),________[9])or 1 local ____________________________=_____________*___________________________.__________________________[________[6]]=____________________________end end end)
-_[13](_[7](),________[15],function()local _____________________________=___________[________[4]]if _____________________________then local ______________________________=_____________________________:FindFirstChildOfClass(________[5])if ______________________________then ______________________________[________[6]]=_____________end end end)
-_[13](_[7](),________[16],function(_______________________________)_[13](_[7](),________[9],_______________________________)local ________________________________=_[13](_[7](),________[8])if ________________________________then local _________________________________=___________[________[4]]if _________________________________then local __________________________________=_________________________________:FindFirstChildOfClass(________[5])if __________________________________then local ___________________________________=_____________*_______________________________.__________________________________[________[6]]=___________________________________end end end end)
-_[13](_[7](),________[17],function(____________________________________)_____________=____________________________________[13](_[7](),________[18],____________________________________)end)
-_[13](_[7](),________[19],function()return _______________()end)
-___________[________[4]..________[10]]:Connect(function(___________________________________)task[________[11]](0.3)local ____________________________________=___________________________________:WaitForChild(________[5],5)if not ____________________________________then return end _______________()local _____________________________________=_[13](_[7](),________[8])if ______________and _____________________________________then local ______________________________________=_[13](_[7](),________[9])or 1 local _______________________________________=_____________*__________________________________________________________________________[________[6]]=_______________________________________else ____________________________________[________[6]]=_____________end end)
-___________________()
-if ___________[________[4]]then task.spawn(function()task[________[11]](0.3)local ________________________________________=___________[________[4]]:FindFirstChildOfClass(________[5])if ________________________________________then _______________()local _________________________________________=_[13](_[7](),________[8])if _________________________________________then local __________________________________________=_[13](_[7](),________[9])or 1 ________________________________________[________[6]]=_____________*__________________________________________else ________________________________________[________[6]]=_____________end end end)end
+local _0xP=game:GetService("Players")
+local _0xR=game:GetService("RunService")
+local _0xL=_0xP.LocalPlayer
+local _0xC=nil
+local _0xB=16
+local _0xA=false
+
+local function _0xD()
+    local _0x1=_0xL.Character
+    if not _0x1 then return 16 end
+    local _0x2=_0x1:FindFirstChildOfClass("Humanoid")
+    if not _0x2 then return 16 end
+    local _0x3=_0x2.WalkSpeed
+    if _0x3>50 then return 16 end
+    _0xB=_0x3
+    _G.velocidadeBaseDetectada=_0x3
+    return _0x3
+end
+
+local function _0xI()
+    if _0xA then return end
+    _0xA=true
+    if _0xC then _0xC:Disconnect()_0xC=nil end
+    _0xD()
+    _0xC=_0xR.Heartbeat:Connect(function()
+        local _0x4=_0xL.Character
+        if not _0x4 then return end
+        local _0x5=_0x4:FindFirstChildOfClass("Humanoid")
+        if not _0x5 then return end
+        if _G.speedToggleAtivo then
+            local _0x6=_G.speedMultiplier or 1
+            local _0x7=_0xB*_0x6
+            if _0x5.WalkSpeed~=_0x7 then
+                _0x5.WalkSpeed=_0x7
+            end
+        else
+            if _0x5.WalkSpeed~=_0xB then
+                _0x5.WalkSpeed=_0xB
+            end
+        end
+    end)
+end
+
+_G.ativarMultiplicadorGitHub=function()
+    if not _0xA then _0xI()end
+    local _0x8=_0xL.Character
+    if _0x8 then
+        local _0x9=_0x8:FindFirstChildOfClass("Humanoid")
+        if _0x9 then
+            local _0xa=_G.speedMultiplier or 1
+            local _0xb=_0xB*_0xa
+            _0x9.WalkSpeed=_0xb
+        end
+    end
+end
+
+_G.desativarMultiplicadorGitHub=function()
+    local _0xc=_0xL.Character
+    if _0xc then
+        local _0xd=_0xc:FindFirstChildOfClass("Humanoid")
+        if _0xd then
+            _0xd.WalkSpeed=_0xB
+        end
+    end
+end
+
+_G.atualizarMultiplicadorGitHub=function(_0xe)
+    _G.speedMultiplier=_0xe
+    if _G.speedToggleAtivo then
+        local _0xf=_0xL.Character
+        if _0xf then
+            local _0x10=_0xf:FindFirstChildOfClass("Humanoid")
+            if _0x10 then
+                local _0x11=_0xB*_0xe
+                _0x10.WalkSpeed=_0x11
+            end
+        end
+    end
+end
+
+_G.atualizarVelocidadeBase=function(_0x12)
+    _0xB=_0x12
+    _G.velocidadeBaseDetectada=_0x12
+end
+
+_G.detectarVelocidadeBaseGitHub=function()
+    return _0xD()
+end
+
+_0xL.CharacterAdded:Connect(function(_0x13)
+    task.wait(0.3)
+    local _0x14=_0x13:WaitForChild("Humanoid",5)
+    if not _0x14 then return end
+    _0xD()
+    if _0xA and _G.speedToggleAtivo then
+        local _0x15=_G.speedMultiplier or 1
+        local _0x16=_0xB*_0x15
+        _0x14.WalkSpeed=_0x16
+    else
+        _0x14.WalkSpeed=_0xB
+    end
+end)
+
+_0xI()
+
+if _0xL.Character then
+    task.spawn(function()
+        task.wait(0.3)
+        local _0x17=_0xL.Character:FindFirstChildOfClass("Humanoid")
+        if _0x17 then
+            _0xD()
+            if _G.speedToggleAtivo then
+                local _0x18=_G.speedMultiplier or 1
+                _0x17.WalkSpeed=_0xB*_0x18
+            else
+                _0x17.WalkSpeed=_0xB
+            end
+        end
+    end)
+end
