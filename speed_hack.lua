@@ -192,7 +192,7 @@ sliderCorner.CornerRadius = UDim.new(0, 10)
 
 local sliderButton = Instance.new("TextButton", sliderFrame)
 sliderButton.Size = UDim2.new(0, 20, 1, 0)
-sliderButton.Position = UDim2.new((speedValue - 16) / (200 - 16), -10, 0, 0)
+sliderButton.Position = UDim2.new((speedValue - 16) / (500 - 16), -10, 0, 0)
 sliderButton.Text = ""
 sliderButton.BackgroundColor3 = Color3.fromRGB(70, 130, 255)
 sliderButton.BorderSizePixel = 0
