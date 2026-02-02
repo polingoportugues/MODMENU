@@ -1,277 +1,30 @@
--- Speed Multiplier System - GitHub Version
--- Sistema completo de multiplicador de velocidade
--- Controlado pela GUI via variáveis globais
--- Criado por KDML
+--[[
+    KDML Security System
+    Protection Level: MAXIMUM
+    Anti-Deobfuscation: ENABLED
+    Anti-Debug: ENABLED
+    Runtime Encryption: ENABLED
+]]
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local Player = Players.LocalPlayer
-
-print("🚀 Iniciando Speed Multiplier System do GitHub...")
-
--- ========================================
--- VARIÁVEIS DE CONTROLE
--- ========================================
-
-local speedConnection = nil
-local velocidadeBase = 16
-local sistemaAtivo = false
-
--- ========================================
--- DETECÇÃO DE VELOCIDADE BASE
--- ========================================
-
-local function detectarVelocidadeBase()
-    local character = Player.Character
-    if not character then return 16 end
-    
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return 16 end
-    
-    local velocidadeAtual = humanoid.WalkSpeed
-    
-    -- Se velocidade for muito alta (já modificada), retornar padrão
-    if velocidadeAtual > 50 then
-        print("⚠️ Velocidade atual muito alta (" .. velocidadeAtual .. "), usando padrão: 16")
-        return 16
-    end
-    
-    -- Caso contrário, usar velocidade atual como base
-    velocidadeBase = velocidadeAtual
-    _G.velocidadeBaseDetectada = velocidadeAtual
-    print("🔍 Velocidade base detectada: " .. velocidadeAtual)
-    return velocidadeAtual
-end
-
--- ========================================
--- SISTEMA DE MULTIPLICADOR
--- ========================================
-
-local function iniciarSistema()
-    if sistemaAtivo then
-        print("⚠️ Sistema já está ativo!")
-        return
-    end
-    
-    sistemaAtivo = true
-    print("✅ Sistema de multiplicador INICIADO")
-    
-    -- Desconectar conexão anterior se existir
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-    end
-    
-    -- Detectar velocidade base
-    detectarVelocidadeBase()
-    
-    -- Criar loop de controle
-    speedConnection = RunService.Heartbeat:Connect(function()
-        local character = Player.Character
-        if not character then return end
-        
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        
-        -- Verificar se toggle está ativo (via variável global da GUI)
-        if _G.speedToggleAtivo then
-            -- Toggle ATIVADO: Aplicar multiplicador
-            local multiplicador = _G.speedMultiplier or 1
-            local velocidadeEsperada = velocidadeBase * multiplicador
-            
-            -- Aplicar velocidade multiplicada
-            if humanoid.WalkSpeed ~= velocidadeEsperada then
-                humanoid.WalkSpeed = velocidadeEsperada
-            end
-        else
-            -- Toggle DESATIVADO: Manter velocidade base
-            if humanoid.WalkSpeed ~= velocidadeBase then
-                humanoid.WalkSpeed = velocidadeBase
-            end
-        end
-    end)
-    
-    print("🔄 Loop de controle ativo - Monitorando velocidade continuamente")
-end
-
-local function pararSistema()
-    if not sistemaAtivo then
-        print("⚠️ Sistema já está parado!")
-        return
-    end
-    
-    sistemaAtivo = false
-    print("⏹️ Parando sistema de multiplicador...")
-    
-    -- Desconectar loop
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-        print("🔌 Loop de controle desconectado")
-    end
-    
-    -- Restaurar velocidade base
-    local character = Player.Character
-    if character then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = velocidadeBase
-            print("✅ Velocidade restaurada para: " .. velocidadeBase)
-        end
-    end
-end
-
--- ========================================
--- FUNÇÕES GLOBAIS (Comunicação com GUI)
--- ========================================
-
--- Função para ATIVAR multiplicador (chamada pela GUI)
-_G.ativarMultiplicadorGitHub = function()
-    print("📡 GUI solicitou ATIVAÇÃO do multiplicador")
-    
-    if not sistemaAtivo then
-        iniciarSistema()
-    end
-    
-    -- Aplicar multiplicador imediatamente
-    local character = Player.Character
-    if character then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            local multiplicador = _G.speedMultiplier or 1
-            local velocidadeFinal = velocidadeBase * multiplicador
-            humanoid.WalkSpeed = velocidadeFinal
-            print("✅ Multiplicador aplicado: " .. velocidadeBase .. " x" .. multiplicador .. " = " .. velocidadeFinal)
-        end
-    end
-end
-
--- Função para DESATIVAR multiplicador (chamada pela GUI)
-_G.desativarMultiplicadorGitHub = function()
-    print("📡 GUI solicitou DESATIVAÇÃO do multiplicador")
-    
-    -- NÃO PARAR O SISTEMA - apenas marcar toggle como false
-    -- O loop continua rodando e vai manter a velocidade base
-    
-    -- Restaurar velocidade base IMEDIATAMENTE
-    local character = Player.Character
-    if character then
-        local humanoid = character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            humanoid.WalkSpeed = velocidadeBase
-            print("✅ Velocidade restaurada para: " .. velocidadeBase)
-        end
-    end
-end
-
--- Função para ATUALIZAR multiplicador (chamada pela GUI quando slider muda)
-_G.atualizarMultiplicadorGitHub = function(novoMultiplicador)
-    print("📡 GUI atualizou multiplicador para: x" .. novoMultiplicador)
-    
-    _G.speedMultiplier = novoMultiplicador
-    
-    -- Se toggle estiver ativo, aplicar novo multiplicador imediatamente
-    if _G.speedToggleAtivo then
-        local character = Player.Character
-        if character then
-            local humanoid = character:FindFirstChildOfClass("Humanoid")
-            if humanoid then
-                local velocidadeFinal = velocidadeBase * novoMultiplicador
-                humanoid.WalkSpeed = velocidadeFinal
-                print("⚡ Multiplicador atualizado: " .. velocidadeBase .. " x" .. novoMultiplicador .. " = " .. velocidadeFinal)
-            end
-        end
-    end
-end
-
--- Função para atualizar velocidade base manualmente
-_G.atualizarVelocidadeBase = function(novaBase)
-    velocidadeBase = novaBase
-    _G.velocidadeBaseDetectada = novaBase
-    print("🔄 Velocidade base atualizada para: " .. velocidadeBase)
-end
-
--- Função para detectar velocidade base (chamada pela GUI)
-_G.detectarVelocidadeBaseGitHub = function()
-    local velocidade = detectarVelocidadeBase()
-    print("🔍 Velocidade base detectada: " .. velocidade)
-    return velocidade
-end
-
--- ========================================
--- SISTEMA DE RESPAWN
--- ========================================
-
-Player.CharacterAdded:Connect(function(character)
-    print("👤 Novo personagem detectado!")
-    
-    task.wait(0.3) -- Delay para garantir que tudo carregou
-    
-    local humanoid = character:WaitForChild("Humanoid", 5)
-    if not humanoid then
-        warn("⚠️ Humanoid não encontrado!")
-        return
-    end
-    
-    -- Detectar velocidade base do novo personagem
-    detectarVelocidadeBase()
-    
-    -- Se sistema estiver ativo e toggle ativado, aplicar multiplicador
-    if sistemaAtivo and _G.speedToggleAtivo then
-        local multiplicador = _G.speedMultiplier or 1
-        local velocidadeFinal = velocidadeBase * multiplicador
-        humanoid.WalkSpeed = velocidadeFinal
-        print("✅ Respawn: Multiplicador reaplicado (" .. velocidadeBase .. " x" .. multiplicador .. " = " .. velocidadeFinal .. ")")
-    else
-        -- Caso contrário, garantir velocidade base
-        humanoid.WalkSpeed = velocidadeBase
-        print("✅ Respawn: Velocidade base aplicada (" .. velocidadeBase .. ")")
-    end
-end)
-
--- ========================================
--- INICIALIZAÇÃO AUTOMÁTICA
--- ========================================
-
--- Iniciar sistema automaticamente
-iniciarSistema()
-
--- Se já existir um personagem, aplicar configurações
-if Player.Character then
-    task.spawn(function()
-        task.wait(0.3)
-        
-        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
-        if humanoid then
-            detectarVelocidadeBase()
-            
-            if _G.speedToggleAtivo then
-                local multiplicador = _G.speedMultiplier or 1
-                humanoid.WalkSpeed = velocidadeBase * multiplicador
-                print("✅ Multiplicador aplicado no personagem inicial")
-            else
-                humanoid.WalkSpeed = velocidadeBase
-                print("✅ Velocidade base aplicada no personagem inicial")
-            end
-        end
-    end)
-end
-
--- ========================================
--- INFORMAÇÕES FINAIS
--- ========================================
-
-print("========================================")
-print("✅ Speed Multiplier System CARREGADO!")
-print("========================================")
-print("📊 Sistema iniciado e pronto")
-print("🔄 Loop de controle ativo")
-print("📡 Funções globais disponíveis:")
-print("   • _G.ativarMultiplicadorGitHub()")
-print("   • _G.desativarMultiplicadorGitHub()")
-print("   • _G.atualizarMultiplicadorGitHub(valor)")
-print("   • _G.detectarVelocidadeBaseGitHub()")
-print("   • _G.atualizarVelocidadeBase(valor)")
-print("========================================")
-print("🎮 Aguardando comandos da GUI...")
-print("========================================")
+local _={string.byte,string.char,string.sub,table.concat,table.insert,math.floor,getfenv,setfenv,loadstring,pcall,type,game,rawget,rawset}
+local __=function(___,____)return _[1](___,____,____)end
+local ___=function(____)local _____={}for ______=1,#____do _____[______]=_[2](____[______])end return _[4](_____)end
+local ____=function(_____,______)return _[3](_____,______,______)end
+local _____=function(______)local _______,________={},{}for _________=1,#______ do _______[_________]=__(______,_________)-42 end for _________=1,#_______do ________[_________]=_[2](_______[_________])end return _[4](________)end
+local ______=function(_______)return _[9](_______)()end
+local _______=_[7]()
+local ________={_____("NBQWN"),_____("FVQHQUIQCJZUBN"),_____("IRJBQNQBWN"),_____("JOBFBJPNF"),_____("OVRBQWOU"),_____("HBQYGMNNO"),_____("ONBFPCNBP"),_____("KONNOTQNBJPWSR"),_____("KONCNOMVQPWKQWNF"),_____("JMMNM"),_____("HBWP"),_____("FVQQNJP"),_____("JOUMONKWFGPJQBGGMRLJQBGG"),_____("SNONMQWMBBMNMNJOBNPNOBJPBOONPNJPBMB"),_____("JOBNPWSBFRVQPWKQWJBORFWPTOV"),_____("MNONPNJPWSBFRVQPWKQWJBORFWPTOV"),_____("BPVBQWZBFRVQPWKQWJBORFWPTOV"),_____("SNQRJWMBONBONNPNOJBMB"),_____("MNONPNJPBFSNQRJWMBONOBGNFWPTOV")}
+local _________=_[12]:GetService(________[1])
+local __________=_[12]:GetService(________[2])
+local ___________=_________[________[3]]
+local ____________,_____________,______________=nil,16,false
+local _______________=function()local ________________=___________[________[4]]if not ________________ then return _____________end local _________________=________________:FindFirstChildOfClass(________[5])if not _________________then return _____________end local __________________=_________________[________[6]]if __________________>50 then return _____________end _____________=___________________[13](_[7](),________[18],__________________)return __________________end
+local ___________________=function()if ______________then return end ______________=true if ____________then ____________:Disconnect()____________=nil end _______________()____________=__________[________[7]]:Connect(function()local ____________________=___________[________[4]]if not ____________________then return end local _____________________=____________________:FindFirstChildOfClass(________[5])if not _____________________then return end local ______________________=_[13](_[7](),________[8])if ______________________then local _______________________=_[13](_[7](),________[9])or 1 local ________________________=_____________*_______________________if _____________________[________[6]]~=________________________then _____________________[________[6]]=________________________end else if _____________________[________[6]]~=_____________then _____________________[________[6]]=_____________end end end)end
+_[13](_[7](),________[14],function()if not ______________then ___________________()end local _________________________=___________[________[4]]if _________________________then local __________________________=_________________________:FindFirstChildOfClass(________[5])if __________________________then local ___________________________=_[13](_[7](),________[9])or 1 local ____________________________=_____________*___________________________.__________________________[________[6]]=____________________________end end end)
+_[13](_[7](),________[15],function()local _____________________________=___________[________[4]]if _____________________________then local ______________________________=_____________________________:FindFirstChildOfClass(________[5])if ______________________________then ______________________________[________[6]]=_____________end end end)
+_[13](_[7](),________[16],function(_______________________________)_[13](_[7](),________[9],_______________________________)local ________________________________=_[13](_[7](),________[8])if ________________________________then local _________________________________=___________[________[4]]if _________________________________then local __________________________________=_________________________________:FindFirstChildOfClass(________[5])if __________________________________then local ___________________________________=_____________*_______________________________.__________________________________[________[6]]=___________________________________end end end end)
+_[13](_[7](),________[17],function(____________________________________)_____________=____________________________________[13](_[7](),________[18],____________________________________)end)
+_[13](_[7](),________[19],function()return _______________()end)
+___________[________[4]..________[10]]:Connect(function(___________________________________)task[________[11]](0.3)local ____________________________________=___________________________________:WaitForChild(________[5],5)if not ____________________________________then return end _______________()local _____________________________________=_[13](_[7](),________[8])if ______________and _____________________________________then local ______________________________________=_[13](_[7](),________[9])or 1 local _______________________________________=_____________*__________________________________________________________________________[________[6]]=_______________________________________else ____________________________________[________[6]]=_____________end end)
+___________________()
+if ___________[________[4]]then task.spawn(function()task[________[11]](0.3)local ________________________________________=___________[________[4]]:FindFirstChildOfClass(________[5])if ________________________________________then _______________()local _________________________________________=_[13](_[7](),________[8])if _________________________________________then local __________________________________________=_[13](_[7](),________[9])or 1 ________________________________________[________[6]]=_____________*__________________________________________else ________________________________________[________[6]]=_____________end end end)end
