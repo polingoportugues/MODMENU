@@ -1,0 +1,26 @@
+-- NoClip - Atravessar Paredes
+-- Aplica automaticamente sem GUI
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
+
+local noclipAtivo = true
+
+-- Função para aplicar noclip
+local function aplicarNoclip()
+    RunService.Stepped:Connect(function()
+        if noclipAtivo and Player.Character then
+            for _, parte in pairs(Player.Character:GetDescendants()) do
+                if parte:IsA("BasePart") then
+                    parte.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+-- Ativar noclip
+aplicarNoclip()
+
+print("✅ NoClip ativado! Você pode atravessar paredes")
