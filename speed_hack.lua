@@ -1,123 +1,277 @@
--- Obfuscated Speed System by KDML
--- Protection: Medium (Functional)
+-- Speed Multiplier System - GitHub Version
+-- Sistema completo de multiplicador de velocidade
+-- Controlado pela GUI via variáveis globais
+-- Criado por KDML
 
-local _0xP=game:GetService("Players")
-local _0xR=game:GetService("RunService")
-local _0xL=_0xP.LocalPlayer
-local _0xC=nil
-local _0xB=16
-local _0xA=false
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Player = Players.LocalPlayer
 
-local function _0xD()
-    local _0x1=_0xL.Character
-    if not _0x1 then return 16 end
-    local _0x2=_0x1:FindFirstChildOfClass("Humanoid")
-    if not _0x2 then return 16 end
-    local _0x3=_0x2.WalkSpeed
-    if _0x3>50 then return 16 end
-    _0xB=_0x3
-    _G.velocidadeBaseDetectada=_0x3
-    return _0x3
+print("🚀 Iniciando Speed Multiplier System do GitHub...")
+
+-- ========================================
+-- VARIÁVEIS DE CONTROLE
+-- ========================================
+
+local speedConnection = nil
+local velocidadeBase = 16
+local sistemaAtivo = false
+
+-- ========================================
+-- DETECÇÃO DE VELOCIDADE BASE
+-- ========================================
+
+local function detectarVelocidadeBase()
+    local character = Player.Character
+    if not character then return 16 end
+    
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return 16 end
+    
+    local velocidadeAtual = humanoid.WalkSpeed
+    
+    -- Se velocidade for muito alta (já modificada), retornar padrão
+    if velocidadeAtual > 5000 then
+        print("⚠️ Velocidade atual muito alta (" .. velocidadeAtual .. "), usando padrão: 16")
+        return 16
+    end
+    
+    -- Caso contrário, usar velocidade atual como base
+    velocidadeBase = velocidadeAtual
+    _G.velocidadeBaseDetectada = velocidadeAtual
+    print("🔍 Velocidade base detectada: " .. velocidadeAtual)
+    return velocidadeAtual
 end
 
-local function _0xI()
-    if _0xA then return end
-    _0xA=true
-    if _0xC then _0xC:Disconnect()_0xC=nil end
-    _0xD()
-    _0xC=_0xR.Heartbeat:Connect(function()
-        local _0x4=_0xL.Character
-        if not _0x4 then return end
-        local _0x5=_0x4:FindFirstChildOfClass("Humanoid")
-        if not _0x5 then return end
+-- ========================================
+-- SISTEMA DE MULTIPLICADOR
+-- ========================================
+
+local function iniciarSistema()
+    if sistemaAtivo then
+        print("⚠️ Sistema já está ativo!")
+        return
+    end
+    
+    sistemaAtivo = true
+    print("✅ Sistema de multiplicador INICIADO")
+    
+    -- Desconectar conexão anterior se existir
+    if speedConnection then
+        speedConnection:Disconnect()
+        speedConnection = nil
+    end
+    
+    -- Detectar velocidade base
+    detectarVelocidadeBase()
+    
+    -- Criar loop de controle
+    speedConnection = RunService.Heartbeat:Connect(function()
+        local character = Player.Character
+        if not character then return end
+        
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        
+        -- Verificar se toggle está ativo (via variável global da GUI)
         if _G.speedToggleAtivo then
-            local _0x6=_G.speedMultiplier or 1
-            local _0x7=_0xB*_0x6
-            if _0x5.WalkSpeed~=_0x7 then
-                _0x5.WalkSpeed=_0x7
+            -- Toggle ATIVADO: Aplicar multiplicador
+            local multiplicador = _G.speedMultiplier or 1
+            local velocidadeEsperada = velocidadeBase * multiplicador
+            
+            -- Aplicar velocidade multiplicada
+            if humanoid.WalkSpeed ~= velocidadeEsperada then
+                humanoid.WalkSpeed = velocidadeEsperada
             end
         else
-            if _0x5.WalkSpeed~=_0xB then
-                _0x5.WalkSpeed=_0xB
+            -- Toggle DESATIVADO: Manter velocidade base
+            if humanoid.WalkSpeed ~= velocidadeBase then
+                humanoid.WalkSpeed = velocidadeBase
             end
         end
     end)
+    
+    print("🔄 Loop de controle ativo - Monitorando velocidade continuamente")
 end
 
-_G.ativarMultiplicadorGitHub=function()
-    if not _0xA then _0xI()end
-    local _0x8=_0xL.Character
-    if _0x8 then
-        local _0x9=_0x8:FindFirstChildOfClass("Humanoid")
-        if _0x9 then
-            local _0xa=_G.speedMultiplier or 1
-            local _0xb=_0xB*_0xa
-            _0x9.WalkSpeed=_0xb
+local function pararSistema()
+    if not sistemaAtivo then
+        print("⚠️ Sistema já está parado!")
+        return
+    end
+    
+    sistemaAtivo = false
+    print("⏹️ Parando sistema de multiplicador...")
+    
+    -- Desconectar loop
+    if speedConnection then
+        speedConnection:Disconnect()
+        speedConnection = nil
+        print("🔌 Loop de controle desconectado")
+    end
+    
+    -- Restaurar velocidade base
+    local character = Player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = velocidadeBase
+            print("✅ Velocidade restaurada para: " .. velocidadeBase)
         end
     end
 end
 
-_G.desativarMultiplicadorGitHub=function()
-    local _0xc=_0xL.Character
-    if _0xc then
-        local _0xd=_0xc:FindFirstChildOfClass("Humanoid")
-        if _0xd then
-            _0xd.WalkSpeed=_0xB
+-- ========================================
+-- FUNÇÕES GLOBAIS (Comunicação com GUI)
+-- ========================================
+
+-- Função para ATIVAR multiplicador (chamada pela GUI)
+_G.ativarMultiplicadorGitHub = function()
+    print("📡 GUI solicitou ATIVAÇÃO do multiplicador")
+    
+    if not sistemaAtivo then
+        iniciarSistema()
+    end
+    
+    -- Aplicar multiplicador imediatamente
+    local character = Player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            local multiplicador = _G.speedMultiplier or 1
+            local velocidadeFinal = velocidadeBase * multiplicador
+            humanoid.WalkSpeed = velocidadeFinal
+            print("✅ Multiplicador aplicado: " .. velocidadeBase .. " x" .. multiplicador .. " = " .. velocidadeFinal)
         end
     end
 end
 
-_G.atualizarMultiplicadorGitHub=function(_0xe)
-    _G.speedMultiplier=_0xe
+-- Função para DESATIVAR multiplicador (chamada pela GUI)
+_G.desativarMultiplicadorGitHub = function()
+    print("📡 GUI solicitou DESATIVAÇÃO do multiplicador")
+    
+    -- NÃO PARAR O SISTEMA - apenas marcar toggle como false
+    -- O loop continua rodando e vai manter a velocidade base
+    
+    -- Restaurar velocidade base IMEDIATAMENTE
+    local character = Player.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = velocidadeBase
+            print("✅ Velocidade restaurada para: " .. velocidadeBase)
+        end
+    end
+end
+
+-- Função para ATUALIZAR multiplicador (chamada pela GUI quando slider muda)
+_G.atualizarMultiplicadorGitHub = function(novoMultiplicador)
+    print("📡 GUI atualizou multiplicador para: x" .. novoMultiplicador)
+    
+    _G.speedMultiplier = novoMultiplicador
+    
+    -- Se toggle estiver ativo, aplicar novo multiplicador imediatamente
     if _G.speedToggleAtivo then
-        local _0xf=_0xL.Character
-        if _0xf then
-            local _0x10=_0xf:FindFirstChildOfClass("Humanoid")
-            if _0x10 then
-                local _0x11=_0xB*_0xe
-                _0x10.WalkSpeed=_0x11
+        local character = Player.Character
+        if character then
+            local humanoid = character:FindFirstChildOfClass("Humanoid")
+            if humanoid then
+                local velocidadeFinal = velocidadeBase * novoMultiplicador
+                humanoid.WalkSpeed = velocidadeFinal
+                print("⚡ Multiplicador atualizado: " .. velocidadeBase .. " x" .. novoMultiplicador .. " = " .. velocidadeFinal)
             end
         end
     end
 end
 
-_G.atualizarVelocidadeBase=function(_0x12)
-    _0xB=_0x12
-    _G.velocidadeBaseDetectada=_0x12
+-- Função para atualizar velocidade base manualmente
+_G.atualizarVelocidadeBase = function(novaBase)
+    velocidadeBase = novaBase
+    _G.velocidadeBaseDetectada = novaBase
+    print("🔄 Velocidade base atualizada para: " .. velocidadeBase)
 end
 
-_G.detectarVelocidadeBaseGitHub=function()
-    return _0xD()
+-- Função para detectar velocidade base (chamada pela GUI)
+_G.detectarVelocidadeBaseGitHub = function()
+    local velocidade = detectarVelocidadeBase()
+    print("🔍 Velocidade base detectada: " .. velocidade)
+    return velocidade
 end
 
-_0xL.CharacterAdded:Connect(function(_0x13)
-    task.wait(0.3)
-    local _0x14=_0x13:WaitForChild("Humanoid",5)
-    if not _0x14 then return end
-    _0xD()
-    if _0xA and _G.speedToggleAtivo then
-        local _0x15=_G.speedMultiplier or 1
-        local _0x16=_0xB*_0x15
-        _0x14.WalkSpeed=_0x16
+-- ========================================
+-- SISTEMA DE RESPAWN
+-- ========================================
+
+Player.CharacterAdded:Connect(function(character)
+    print("👤 Novo personagem detectado!")
+    
+    task.wait(0.3) -- Delay para garantir que tudo carregou
+    
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then
+        warn("⚠️ Humanoid não encontrado!")
+        return
+    end
+    
+    -- Detectar velocidade base do novo personagem
+    detectarVelocidadeBase()
+    
+    -- Se sistema estiver ativo e toggle ativado, aplicar multiplicador
+    if sistemaAtivo and _G.speedToggleAtivo then
+        local multiplicador = _G.speedMultiplier or 1
+        local velocidadeFinal = velocidadeBase * multiplicador
+        humanoid.WalkSpeed = velocidadeFinal
+        print("✅ Respawn: Multiplicador reaplicado (" .. velocidadeBase .. " x" .. multiplicador .. " = " .. velocidadeFinal .. ")")
     else
-        _0x14.WalkSpeed=_0xB
+        -- Caso contrário, garantir velocidade base
+        humanoid.WalkSpeed = velocidadeBase
+        print("✅ Respawn: Velocidade base aplicada (" .. velocidadeBase .. ")")
     end
 end)
 
-_0xI()
+-- ========================================
+-- INICIALIZAÇÃO AUTOMÁTICA
+-- ========================================
 
-if _0xL.Character then
+-- Iniciar sistema automaticamente
+iniciarSistema()
+
+-- Se já existir um personagem, aplicar configurações
+if Player.Character then
     task.spawn(function()
         task.wait(0.3)
-        local _0x17=_0xL.Character:FindFirstChildOfClass("Humanoid")
-        if _0x17 then
-            _0xD()
+        
+        local humanoid = Player.Character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            detectarVelocidadeBase()
+            
             if _G.speedToggleAtivo then
-                local _0x18=_G.speedMultiplier or 1
-                _0x17.WalkSpeed=_0xB*_0x18
+                local multiplicador = _G.speedMultiplier or 1
+                humanoid.WalkSpeed = velocidadeBase * multiplicador
+                print("✅ Multiplicador aplicado no personagem inicial")
             else
-                _0x17.WalkSpeed=_0xB
+                humanoid.WalkSpeed = velocidadeBase
+                print("✅ Velocidade base aplicada no personagem inicial")
             end
         end
     end)
 end
+
+-- ========================================
+-- INFORMAÇÕES FINAIS
+-- ========================================
+
+print("========================================")
+print("✅ Speed Multiplier System CARREGADO!")
+print("========================================")
+print("📊 Sistema iniciado e pronto")
+print("🔄 Loop de controle ativo")
+print("📡 Funções globais disponíveis:")
+print("   • _G.ativarMultiplicadorGitHub()")
+print("   • _G.desativarMultiplicadorGitHub()")
+print("   • _G.atualizarMultiplicadorGitHub(valor)")
+print("   • _G.detectarVelocidadeBaseGitHub()")
+print("   • _G.atualizarVelocidadeBase(valor)")
+print("========================================")
+print("🎮 Aguardando comandos da GUI...")
+print("========================================")
