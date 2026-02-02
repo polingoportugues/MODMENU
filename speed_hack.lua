@@ -19,7 +19,7 @@ repeat task.wait() until Player and Player:FindFirstChild("PlayerGui")
 -- ========================================
 
 local speedAtivo = false
-local speedValue = 100  -- Velocidade padrão (16 é normal)
+local speedValue = 500  -- Velocidade padrão (16 é normal)
 local speedConnection = nil
 
 -- ========================================
