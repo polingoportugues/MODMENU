@@ -1,26 +1,201 @@
--- NoClip - Atravessar Paredes
--- Aplica automaticamente sem GUI
+-- ============================================
+-- ANXIIE SCRIPTS - NOCLIP CONTROL
+-- Script para GitHub - Controlado pela GUI
+-- ============================================
+
+print("🚀 Iniciando ANXIIE NoClip Script...")
+print("📡 Este script é controlado pela GUI Interface")
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Player = Players.LocalPlayer
+local UserInputService = game:GetService("UserInputService")
 
-local noclipAtivo = true
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
 
--- Função para aplicar noclip
+-- ========================================
+-- VARIÁVEIS GLOBAIS (Comunicação com GUI)
+-- ========================================
+
+_G.noclipToggleAtivo = _G.noclipToggleAtivo or false
+
+-- ========================================
+-- CONFIGURAÇÃO
+-- ========================================
+
+local noclipAtivo = false
+local conexaoNoclip = nil
+local originalCollisions = {}
+
+-- ========================================
+-- FUNÇÕES AUXILIARES
+-- ========================================
+
+local function salvarColisoes()
+    originalCollisions = {}
+    
+    if not character then return end
+    
+    for _, parte in pairs(character:GetDescendants()) do
+        if parte:IsA("BasePart") then
+            originalCollisions[parte] = parte.CanCollide
+        end
+    end
+    
+    print("💾 Colisões originais salvas:", #originalCollisions, "partes")
+end
+
+local function restaurarColisoes()
+    if not character then return end
+    
+    for parte, canCollide in pairs(originalCollisions) do
+        if parte and parte.Parent then
+            parte.CanCollide = canCollide
+        end
+    end
+    
+    print("✅ Colisões restauradas")
+end
+
+-- ========================================
+-- SISTEMA DE NOCLIP
+-- ========================================
+
 local function aplicarNoclip()
-    RunService.Stepped:Connect(function()
-        if noclipAtivo and Player.Character then
-            for _, parte in pairs(Player.Character:GetDescendants()) do
-                if parte:IsA("BasePart") then
-                    parte.CanCollide = false
-                end
-            end
+    if not character then return end
+    
+    for _, parte in pairs(character:GetDescendants()) do
+        if parte:IsA("BasePart") then
+            parte.CanCollide = false
+        end
+    end
+end
+
+local function iniciarMonitoramento()
+    if conexaoNoclip then
+        conexaoNoclip:Disconnect()
+    end
+    
+    print("🔄 Iniciando monitoramento de NoClip...")
+    
+    -- Salvar colisões originais
+    salvarColisoes()
+    
+    -- Conexão para manter NoClip ativo
+    conexaoNoclip = RunService.Stepped:Connect(function()
+        if noclipAtivo and character and character.Parent then
+            aplicarNoclip()
+        end
+    end)
+    
+    print("✅ Monitoramento de NoClip ativo")
+end
+
+local function pararMonitoramento()
+    if conexaoNoclip then
+        conexaoNoclip:Disconnect()
+        conexaoNoclip = nil
+        print("⏹️ Monitoramento de NoClip parado")
+    end
+end
+
+-- ========================================
+-- FUNÇÕES GLOBAIS PARA A GUI
+-- ========================================
+
+function _G.ativarNoclipGitHub()
+    print("🟢 Ativando NoClip...")
+    noclipAtivo = true
+    
+    -- Salvar colisões originais
+    salvarColisoes()
+    
+    -- Aplicar NoClip imediatamente
+    aplicarNoclip()
+    
+    -- Iniciar monitoramento
+    iniciarMonitoramento()
+    
+    print("✅ NoClip ATIVADO")
+    print("🚶 Você pode atravessar paredes!")
+end
+
+function _G.desativarNoclipGitHub()
+    print("🔴 Desativando NoClip...")
+    noclipAtivo = false
+    
+    -- Parar monitoramento
+    pararMonitoramento()
+    
+    -- Restaurar colisões originais
+    restaurarColisoes()
+    
+    print("✅ NoClip DESATIVADO")
+    print("🚧 Colisões restauradas ao normal")
+end
+
+-- ========================================
+-- EVENTOS DE PERSONAGEM
+-- ========================================
+
+-- Reconectar quando o personagem for recarregado
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    
+    print("🔄 Novo personagem detectado...")
+    
+    -- Limpar colisões salvas
+    originalCollisions = {}
+    
+    -- Se estava ativo, reativar
+    if noclipAtivo then
+        task.wait(1) -- Esperar o personagem carregar completamente
+        print("🔄 Reativando NoClip após respawn...")
+        salvarColisoes()
+        iniciarMonitoramento()
+        aplicarNoclip()
+    end
+end)
+
+-- ========================================
+-- PROTEÇÃO CONTRA MUDANÇAS
+-- ========================================
+
+-- Monitorar adição de novas partes ao personagem
+if character then
+    character.DescendantAdded:Connect(function(descendant)
+        if noclipAtivo and descendant:IsA("BasePart") then
+            task.wait(0.1) -- Pequeno delay
+            descendant.CanCollide = false
+            print("🔧 Nova parte detectada, NoClip aplicado:", descendant.Name)
         end
     end)
 end
 
--- Ativar noclip
-aplicarNoclip()
+-- ========================================
+-- AUTO-ATIVAÇÃO SE GUI JÁ ESTAVA ATIVA
+-- ========================================
 
-print("✅ NoClip ativado! Você pode atravessar paredes")
+-- Se a GUI já estava com o toggle ativo quando este script foi carregado
+if _G.noclipToggleAtivo then
+    print("🔄 GUI já estava ativa, ativando NoClip...")
+    task.wait(1)
+    _G.ativarNoclipGitHub()
+end
+
+-- ========================================
+-- INICIALIZAÇÃO COMPLETA
+-- ========================================
+
+print("✅ ANXIIE NoClip Script carregado com sucesso!")
+print("🎮 Status: " .. (noclipAtivo and "ATIVO" or "INATIVO"))
+print("💡 Use a GUI para controlar o NoClip")
+print("")
+print("Funções disponíveis:")
+print("  _G.ativarNoclipGitHub()")
+print("  _G.desativarNoclipGitHub()")
+print("")
+print("⚠️ IMPORTANTE:")
+print("  • NoClip permite atravessar paredes")
+print("  • As colisões são restauradas ao desativar")
+print("  • Funciona automaticamente após respawn")
