@@ -31,7 +31,7 @@ local function detectarVelocidadeBase()
     local velocidadeAtual = humanoid.WalkSpeed
     
     -- Se velocidade for muito alta (já modificada), retornar padrão
-    if velocidadeAtual > 5000 then
+    if velocidadeAtual > 50 then
         print("⚠️ Velocidade atual muito alta (" .. velocidadeAtual .. "), usando padrão: 16")
         return 16
     end
