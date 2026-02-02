@@ -1,5 +1,5 @@
--- ESP Lucky Blocks Script
--- by ANXIIE (Discord: 
+-- ESP Lucky Blocks Script - VERSÃO OTIMIZADA SEM LAG
+-- by ANXIIE
 -- Script hospedado no GitHub - Controlado pela GUI
 
 local Players = game:GetService("Players")
@@ -7,6 +7,8 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
+
+print("🔍 ESP: Iniciando script otimizado...")
 
 -- ========================================
 -- CONFIGURAÇÕES DE CORES POR RARIDADE
@@ -24,47 +26,71 @@ local raridadeCores = {
     Common = Color3.fromRGB(158, 158, 158)       -- Cinza
 }
 
+-- Verificar se as variáveis globais existem
+if not _G.espRaridades then
+    _G.espRaridades = {
+        Celestial = false,
+        Legendary = false,
+        Secret = false,
+        Cosmic = false,
+        Mythical = false,
+        Epic = false,
+        Rare = false,
+        Uncommon = false,
+        Common = false
+    }
+    print("⚠️ ESP: Variáveis globais criadas")
+end
+
 -- ========================================
--- ARMAZENAMENTO DE LINHAS ESP
+-- FOLDER PARA ORGANIZAR ESP
 -- ========================================
 
-local espLinhas = {}
+local folderESP = Instance.new("Folder")
+folderESP.Name = "ESP_LuckyBlocks_ANXIIE"
+folderESP.Parent = Workspace
+
+-- ========================================
+-- ARMAZENAMENTO DE CONEXÕES ESP
+-- ========================================
+
+local espAtivos = {}
 
 -- ========================================
 -- FUNÇÃO PARA DETECTAR RARIDADE
 -- ========================================
 
-local function detectarRaridade(block)
-    if not block then return nil end
+local function detectarRaridade(obj)
+    if not obj then return nil end
     
-    -- Tentar encontrar a raridade pelo nome do bloco
-    local blockName = block.Name
+    -- Criar uma string de busca com o nome do objeto e seus parentes
+    local searchString = obj.Name
     
-    -- Priorizar busca pelo nome exato
+    -- Adicionar nome do parent
+    if obj.Parent then
+        searchString = searchString .. " " .. obj.Parent.Name
+        
+        -- Adicionar nome do parent do parent
+        if obj.Parent.Parent then
+            searchString = searchString .. " " .. obj.Parent.Parent.Name
+        end
+    end
+    
+    -- Buscar nos children também
+    for _, child in ipairs(obj:GetChildren()) do
+        searchString = searchString .. " " .. child.Name
+        if child:IsA("TextLabel") and child.Text then
+            searchString = searchString .. " " .. child.Text
+        end
+    end
+    
+    -- Converter para lowercase para busca case-insensitive
+    searchString = searchString:lower()
+    
+    -- Verificar cada raridade
     for raridade, _ in pairs(raridadeCores) do
-        if blockName:find(raridade) then
+        if searchString:find(raridade:lower()) then
             return raridade
-        end
-    end
-    
-    -- Buscar em children do bloco
-    for _, child in ipairs(block:GetChildren()) do
-        if child:IsA("TextLabel") or child:IsA("BillboardGui") then
-            for raridade, _ in pairs(raridadeCores) do
-                if child.Name:find(raridade) or (child.Text and child.Text:find(raridade)) then
-                    return raridade
-                end
-            end
-        end
-    end
-    
-    -- Buscar pelo parent
-    if block.Parent then
-        local parentName = block.Parent.Name
-        for raridade, _ in pairs(raridadeCores) do
-            if parentName:find(raridade) then
-                return raridade
-            end
         end
     end
     
@@ -72,67 +98,83 @@ local function detectarRaridade(block)
 end
 
 -- ========================================
--- FUNÇÃO PARA CRIAR LINHA ESP
+-- FUNÇÃO PARA CRIAR CONEXÃO ESP OTIMIZADA
 -- ========================================
 
-local function criarLinhaESP(block, raridade)
-    if not block or not block:IsA("BasePart") then return nil end
-    if not raridadeCores[raridade] then return nil end
-    
-    -- Criar attachment no player
-    local attachment0 = Instance.new("Attachment")
-    attachment0.Name = "ESPAttachment0_" .. block.Name
-    attachment0.Parent = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-    
-    if not attachment0.Parent then
-        attachment0:Destroy()
-        return nil
+local function criarConexaoESP(target, raridade, index)
+    local char = player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then
+        return
     end
     
-    -- Criar attachment no lucky block
-    local attachment1 = Instance.new("Attachment")
-    attachment1.Name = "ESPAttachment1_" .. block.Name
-    attachment1.Parent = block
+    -- Usar Terrain como adornee (mais otimizado)
+    local adorneeLine = Workspace:FindFirstChildOfClass("Terrain") or char:FindFirstChild("HumanoidRootPart")
+    if not adorneeLine then return end
     
-    -- Criar beam (linha)
-    local beam = Instance.new("Beam")
-    beam.Name = "ESPBeam_" .. block.Name
-    beam.Attachment0 = attachment0
-    beam.Attachment1 = attachment1
-    beam.Color = ColorSequence.new(raridadeCores[raridade])
-    beam.Width0 = 0.3
-    beam.Width1 = 0.3
-    beam.FaceCamera = true
-    beam.Transparency = NumberSequence.new(0.3)
-    beam.LightEmission = 1
-    beam.LightInfluence = 0
-    beam.Parent = attachment0
+    -- Criar linha usando CylinderHandleAdornment (muito mais otimizado que Beam)
+    local line = Instance.new("CylinderHandleAdornment")
+    line.Name = "ESP_Line_" .. raridade .. "_" .. index
+    line.AlwaysOnTop = true
+    line.Color3 = raridadeCores[raridade]
+    line.Radius = 0.15
+    line.Transparency = 0.3
+    line.Adornee = adorneeLine
+    line.Parent = folderESP
+    
+    -- Criar BillboardGui para mostrar distância e nome
+    local bill = Instance.new("BillboardGui")
+    bill.Name = "ESP_Billboard_" .. raridade .. "_" .. index
+    bill.Adornee = target
+    bill.Size = UDim2.new(0, 120, 0, 50)
+    bill.AlwaysOnTop = true
+    bill.Parent = folderESP
+    
+    local txt = Instance.new("TextLabel")
+    txt.Size = UDim2.new(1, 0, 1, 0)
+    txt.BackgroundTransparency = 1
+    txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+    txt.Font = Enum.Font.GothamBold
+    txt.TextSize = 14
+    txt.TextStrokeTransparency = 0.5
+    txt.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    txt.Parent = bill
+    
+    -- Conexão RenderStepped para atualizar linha
+    local renderConn
+    renderConn = RunService.RenderStepped:Connect(function()
+        -- Verificar se ESP está ativo para essa raridade
+        if _G.espRaridades[raridade] and target and target.Parent and char and char:FindFirstChild("HumanoidRootPart") then
+            local p1 = char.HumanoidRootPart.Position
+            local p2 = target.Position
+            local mag = (p2 - p1).Magnitude
+            
+            -- Atualizar linha
+            line.Height = mag
+            line.CFrame = CFrame.lookAt(p1, p2) * CFrame.new(0, 0, -mag/2)
+            
+            -- Atualizar texto com distância
+            txt.Text = string.format("%s\n%dm", raridade, math.floor(mag))
+        else
+            -- Limpar quando desativado ou target removido
+            if line then line:Destroy() end
+            if bill then bill:Destroy() end
+            renderConn:Disconnect()
+            
+            -- Remover da tabela de ativos
+            local key = tostring(target)
+            if espAtivos[key] then
+                espAtivos[key] = nil
+            end
+        end
+    end)
     
     return {
-        beam = beam,
-        attachment0 = attachment0,
-        attachment1 = attachment1,
-        block = block,
+        line = line,
+        billboard = bill,
+        connection = renderConn,
+        target = target,
         raridade = raridade
     }
-end
-
--- ========================================
--- FUNÇÃO PARA REMOVER LINHA ESP
--- ========================================
-
-local function removerLinhaESP(linhaInfo)
-    if not linhaInfo then return end
-    
-    if linhaInfo.beam then
-        linhaInfo.beam:Destroy()
-    end
-    if linhaInfo.attachment0 then
-        linhaInfo.attachment0:Destroy()
-    end
-    if linhaInfo.attachment1 then
-        linhaInfo.attachment1:Destroy()
-    end
 end
 
 -- ========================================
@@ -148,17 +190,18 @@ local function encontrarLuckyBlocks()
         Workspace:FindFirstChild("Map"),
         Workspace:FindFirstChild("LuckyBlocks"),
         Workspace:FindFirstChild("Blocks"),
-        Workspace:FindFirstChild("Items")
+        Workspace:FindFirstChild("Items"),
+        Workspace:FindFirstChild("Game")
     }
     
-    for _, local_busca in ipairs(locaisBusca) do
-        if local_busca then
-            for _, obj in ipairs(local_busca:GetDescendants()) do
-                -- Verificar se é um lucky block
+    for _, localBusca in ipairs(locaisBusca) do
+        if localBusca then
+            for _, obj in ipairs(localBusca:GetDescendants()) do
+                -- Verificar se é um lucky block (BasePart)
                 if obj:IsA("BasePart") and (
                     obj.Name:find("Lucky") or 
                     obj.Name:find("Block") or
-                    obj.Parent and (obj.Parent.Name:find("Lucky") or obj.Parent.Name:find("Block"))
+                    (obj.Parent and (obj.Parent.Name:find("Lucky") or obj.Parent.Name:find("Block")))
                 ) then
                     local raridade = detectarRaridade(obj)
                     if raridade then
@@ -185,33 +228,43 @@ local function atualizarESP()
     -- Encontrar todos os lucky blocks
     local luckyBlocks = encontrarLuckyBlocks()
     
-    -- Remover linhas de blocks que não existem mais ou de raridades desativadas
-    for blockKey, linhaInfo in pairs(espLinhas) do
+    -- Limpar ESP de blocos que não existem mais
+    for key, espInfo in pairs(espAtivos) do
         local blockExists = false
-        local raridadeAtiva = _G.espRaridades and _G.espRaridades[linhaInfo.raridade]
         
         for _, blockInfo in ipairs(luckyBlocks) do
-            if blockInfo.block == linhaInfo.block then
+            if tostring(blockInfo.block) == key then
                 blockExists = true
                 break
             end
         end
         
-        if not blockExists or not raridadeAtiva then
-            removerLinhaESP(linhaInfo)
-            espLinhas[blockKey] = nil
+        -- Se o bloco não existe mais ou a raridade foi desativada, remover ESP
+        if not blockExists or not _G.espRaridades[espInfo.raridade] then
+            if espInfo.line then espInfo.line:Destroy() end
+            if espInfo.billboard then espInfo.billboard:Destroy() end
+            if espInfo.connection then espInfo.connection:Disconnect() end
+            espAtivos[key] = nil
         end
     end
     
-    -- Adicionar linhas para novos blocks de raridades ativadas
+    -- Adicionar ESP para novos blocos
+    local counter = {}
     for _, blockInfo in ipairs(luckyBlocks) do
-        local blockKey = tostring(blockInfo.block)
-        local raridadeAtiva = _G.espRaridades and _G.espRaridades[blockInfo.raridade]
+        local key = tostring(blockInfo.block)
+        local raridade = blockInfo.raridade
         
-        if raridadeAtiva and not espLinhas[blockKey] then
-            local linhaInfo = criarLinhaESP(blockInfo.block, blockInfo.raridade)
-            if linhaInfo then
-                espLinhas[blockKey] = linhaInfo
+        -- Contar blocos por raridade
+        if not counter[raridade] then
+            counter[raridade] = 0
+        end
+        counter[raridade] = counter[raridade] + 1
+        
+        -- Se a raridade está ativa e o bloco ainda não tem ESP
+        if _G.espRaridades[raridade] and not espAtivos[key] then
+            local espInfo = criarConexaoESP(blockInfo.block, raridade, counter[raridade])
+            if espInfo then
+                espAtivos[key] = espInfo
             end
         end
     end
@@ -233,54 +286,54 @@ function _G.desativarESPLuckyBlockGitHub(raridade)
     print("⏹️ ESP GitHub: Desativando ESP para " .. raridade)
     _G.espRaridades[raridade] = false
     
-    -- Remover todas as linhas dessa raridade
-    for blockKey, linhaInfo in pairs(espLinhas) do
-        if linhaInfo.raridade == raridade then
-            removerLinhaESP(linhaInfo)
-            espLinhas[blockKey] = nil
-        end
-    end
+    -- As conexões vão se auto-destruir no próximo frame do RenderStepped
 end
 
 -- ========================================
--- LOOP PRINCIPAL
+-- LOOP PRINCIPAL (OTIMIZADO)
 -- ========================================
 
-local conexaoRender
+local ultimaAtualizacao = 0
+local intervaloAtualizacao = 2 -- Atualizar a cada 2 segundos (otimização)
 
-local function iniciarLoop()
-    if conexaoRender then
-        conexaoRender:Disconnect()
-    end
+RunService.Heartbeat:Connect(function()
+    local agora = tick()
     
-    conexaoRender = RunService.RenderStepped:Connect(function()
-        -- Atualizar ESP a cada frame
+    -- Só atualizar a lista de blocos a cada X segundos
+    if agora - ultimaAtualizacao >= intervaloAtualizacao then
         atualizarESP()
-    end)
-end
+        ultimaAtualizacao = agora
+    end
+end)
 
 -- ========================================
 -- INICIALIZAÇÃO
 -- ========================================
 
-print("✅ ESP Lucky Blocks carregado!")
+print("✅ ESP Lucky Blocks carregado (OTIMIZADO - SEM LAG)!")
 print("🎮 Controlado pela GUI ANXIIE")
+print("⚡ Usando CylinderHandleAdornment para performance máxima")
 
--- Iniciar o loop
-iniciarLoop()
+-- Primeira atualização
+atualizarESP()
 
 -- Limpar ao morrer e reiniciar ao respawnar
 player.CharacterAdded:Connect(function(character)
-    -- Limpar todas as linhas antigas
-    for blockKey, linhaInfo in pairs(espLinhas) do
-        removerLinhaESP(linhaInfo)
+    -- Limpar todas as conexões antigas
+    for key, espInfo in pairs(espAtivos) do
+        if espInfo.line then espInfo.line:Destroy() end
+        if espInfo.billboard then espInfo.billboard:Destroy() end
+        if espInfo.connection then espInfo.connection:Disconnect() end
     end
-    espLinhas = {}
+    espAtivos = {}
+    
+    -- Limpar folder
+    folderESP:ClearAllChildren()
     
     -- Aguardar character carregar
     character:WaitForChild("HumanoidRootPart")
     task.wait(1)
     
-    -- Reiniciar loop
-    iniciarLoop()
+    -- Atualizar ESP
+    atualizarESP()
 end)
