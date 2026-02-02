@@ -1,0 +1,33 @@
+-- Infinite Jump - Pulo Infinito
+-- Aplica automaticamente sem GUI
+
+local UserInputService = game:GetService("UserInputService")
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+
+local ALTURA_PULO = 50  -- Você pode ajustar essa altura
+
+-- Função principal do infinite jump
+local function configurarInfJump(character)
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not humanoid then return end
+
+    print("✅ Infinite Jump ativado!")
+
+    -- Detectar quando apertar espaço
+    UserInputService.JumpRequest:Connect(function()
+        if humanoid and humanoid.Parent then
+            humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+        end
+    end)
+end
+
+-- Aplicar no personagem atual
+if Player.Character then
+    configurarInfJump(Player.Character)
+end
+
+-- Aplicar em novos personagens (quando respawnar)
+Player.CharacterAdded:Connect(configurarInfJump)
+
+print("🚀 Infinite Jump carregado! Aperte ESPAÇO para pular infinitamente")
