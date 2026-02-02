@@ -19,7 +19,7 @@ repeat task.wait() until Player and Player:FindFirstChild("PlayerGui")
 -- ========================================
 
 local speedAtivo = false
-local speedValue = 500  -- Velocidade padrão (16 é normal)
+local speedValue = 50000  -- Velocidade padrão (16 é normal)
 local speedConnection = nil
 
 -- ========================================
@@ -220,7 +220,7 @@ game:GetService("UserInputService").InputChanged:Connect(function(input)
         local relativeX = math.clamp((input.Position.X - sliderFrame.AbsolutePosition.X) / sliderFrame.AbsoluteSize.X, 0, 1)
         
         -- Calcular velocidade (16 a 200)
-        local novaVelocidade = math.floor(16 + (relativeX * (200 - 16)))
+        local novaVelocidade = math.floor(16 + (relativeX * (5000 - 16)))
         
         -- Atualizar posição do botão
         sliderButton.Position = UDim2.new(relativeX, -10, 0, 0)
