@@ -69,13 +69,15 @@ local function aplicarMultiplicador(character)
         
         -- Verificar se o toggle está ativo
         if _G.speedToggleAtivo == false then
-            -- Se toggle foi desativado, restaurar velocidade base
+            -- CORREÇÃO: Restaurar velocidade base ANTES de desconectar
+            humanoid.WalkSpeed = velocidadeBase
+            print("ℹ️ Multiplicador desativado - Velocidade restaurada para:", velocidadeBase)
+            
+            -- Agora sim, desconectar o loop
             if speedConnection then
                 speedConnection:Disconnect()
                 speedConnection = nil
             end
-            humanoid.WalkSpeed = velocidadeBase
-            print("⏹️ Multiplicador desativado - Velocidade restaurada para:", velocidadeBase)
             return
         end
         
@@ -100,19 +102,26 @@ end
 
 -- Função global para desativar o multiplicador (chamada pela GUI)
 _G.desativarMultiplicadorGitHub = function()
-    if speedConnection then
-        speedConnection:Disconnect()
-        speedConnection = nil
-    end
+    print("🔄 Desativando multiplicador GitHub...")
     
+    -- CORREÇÃO: Restaurar velocidade ANTES de desconectar
     local character = Player.Character
     if character then
         local humanoid = character:FindFirstChildOfClass("Humanoid")
         if humanoid then
             humanoid.WalkSpeed = velocidadeBase
-            print("❌ Multiplicador GitHub desativado - Velocidade:", velocidadeBase)
+            print("✅ Velocidade restaurada para:", velocidadeBase)
         end
     end
+    
+    -- Agora desconectar o loop
+    if speedConnection then
+        speedConnection:Disconnect()
+        speedConnection = nil
+        print("🔌 Conexão desconectada")
+    end
+    
+    print("❌ Multiplicador GitHub desativado completamente")
 end
 
 -- Função global para atualizar velocidade base (chamada quando o jogo muda)
@@ -132,6 +141,14 @@ Player.CharacterAdded:Connect(function(character)
     if _G.speedToggleAtivo ~= false then
         task.wait(0.2) -- Pequeno delay para garantir que o personagem carregou
         aplicarMultiplicador(character)
+    else
+        -- CORREÇÃO: Se toggle estiver desativado, garantir velocidade base
+        task.wait(0.2)
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = velocidadeBase
+            print("✅ Novo personagem spawnou com velocidade base:", velocidadeBase)
+        end
     end
 end)
 
