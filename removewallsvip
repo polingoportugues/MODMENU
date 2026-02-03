@@ -1,0 +1,177 @@
+-- Script para Remover Paredes VIP
+-- Baseado na estrutura: workspace.VIPWalls com partes "VIP" e "VIP_PLUS"
+
+local function removeVIPWalls()
+    print("🔓 Iniciando remoção de paredes VIP...")
+    
+    -- Verificar se VIPWalls existe
+    local vipWalls = workspace:FindFirstChild("VIPWalls")
+    
+    if not vipWalls then
+        warn("⚠️ VIPWalls não encontrado no workspace!")
+        return
+    end
+    
+    -- Método 1: Deletar completamente as paredes VIP
+    local wallsRemoved = 0
+    local textRemoved = 0
+    
+    for _, wall in pairs(vipWalls:GetChildren()) do
+        -- Remover textos VIP antes de deletar a parede
+        for _, child in pairs(wall:GetDescendants()) do
+            if child:IsA("SurfaceGui") or child:IsA("BillboardGui") or 
+               child:IsA("Decal") or child:IsA("Texture") then
+                child:Destroy()
+                textRemoved = textRemoved + 1
+            end
+        end
+        
+        if wall:IsA("BasePart") then
+            wall:Destroy()
+            wallsRemoved = wallsRemoved + 1
+        end
+    end
+    
+    print("✅ " .. wallsRemoved .. " paredes VIP deletadas!")
+    print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
+    
+    -- Opcional: Deletar o container inteiro
+    -- vipWalls:Destroy()
+    -- print("✅ Container VIPWalls completamente removido!")
+end
+
+-- Método alternativo: Tornar paredes invisíveis e não colidíveis (mais seguro)
+local function bypassVIPWalls()
+    print("🔓 Iniciando bypass de paredes VIP...")
+    
+    local vipWalls = workspace:FindFirstChild("VIPWalls")
+    
+    if not vipWalls then
+        warn("⚠️ VIPWalls não encontrado no workspace!")
+        return
+    end
+    
+    local wallsBypassed = 0
+    local textRemoved = 0
+    
+    for _, wall in pairs(vipWalls:GetChildren()) do
+        if wall:IsA("BasePart") then
+            -- Tornar não colidível
+            wall.CanCollide = false
+            
+            -- Tornar invisível
+            wall.Transparency = 1
+            
+            -- Desabilitar casting de sombra
+            wall.CastShadow = false
+            
+            wallsBypassed = wallsBypassed + 1
+        end
+        
+        -- Remover textos/decals/SurfaceGuis com "VIP"
+        for _, child in pairs(wall:GetDescendants()) do
+            if child:IsA("SurfaceGui") or child:IsA("BillboardGui") or 
+               child:IsA("Decal") or child:IsA("Texture") then
+                child:Destroy()
+                textRemoved = textRemoved + 1
+            end
+        end
+    end
+    
+    print("✅ " .. wallsBypassed .. " paredes VIP bypassed (invisíveis e não colidíveis)!")
+    print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
+end
+
+-- Método 3: Remover paredes específicas (VIP e VIP_PLUS)
+local function removeSpecificVIPWalls()
+    print("🔓 Removendo paredes VIP específicas...")
+    
+    local vipWalls = workspace:FindFirstChild("VIPWalls")
+    
+    if not vipWalls then
+        warn("⚠️ VIPWalls não encontrado no workspace!")
+        return
+    end
+    
+    local vipRemoved = 0
+    local vipPlusRemoved = 0
+    local textRemoved = 0
+    
+    for _, wall in pairs(vipWalls:GetChildren()) do
+        -- Remover textos VIP
+        for _, child in pairs(wall:GetDescendants()) do
+            if child:IsA("SurfaceGui") or child:IsA("BillboardGui") or 
+               child:IsA("Decal") or child:IsA("Texture") then
+                child:Destroy()
+                textRemoved = textRemoved + 1
+            end
+        end
+        
+        if wall.Name == "VIP" then
+            wall:Destroy()
+            vipRemoved = vipRemoved + 1
+        elseif wall.Name == "VIP_PLUS" then
+            wall:Destroy()
+            vipPlusRemoved = vipPlusRemoved + 1
+        end
+    end
+    
+    print("✅ " .. vipRemoved .. " paredes VIP removidas!")
+    print("✅ " .. vipPlusRemoved .. " paredes VIP_PLUS removidas!")
+    print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
+end
+
+-- Método 4: Sistema de auto-remoção contínua (caso as paredes respawnem)
+local function autoRemoveVIPWalls()
+    print("🔄 Sistema de auto-remoção ativado...")
+    
+    game:GetService("RunService").Heartbeat:Connect(function()
+        local vipWalls = workspace:FindFirstChild("VIPWalls")
+        
+        if vipWalls then
+            for _, wall in pairs(vipWalls:GetChildren()) do
+                if wall:IsA("BasePart") and wall.CanCollide == true then
+                    wall.CanCollide = false
+                    wall.Transparency = 1
+                end
+                
+                -- Remover textos VIP continuamente
+                for _, child in pairs(wall:GetDescendants()) do
+                    if child:IsA("SurfaceGui") or child:IsA("BillboardGui") or 
+                       child:IsA("Decal") or child:IsA("Texture") then
+                        child:Destroy()
+                    end
+                end
+            end
+        end
+    end)
+    
+    print("✅ Auto-remoção de paredes VIP ativada permanentemente!")
+    print("✅ Textos VIP serão removidos automaticamente!")
+end
+
+-- Menu de seleção
+print("=== REMOVEDOR DE PAREDES VIP ===")
+print("Escolha o método:")
+print("1 - Deletar paredes VIP (permanente)")
+print("2 - Bypass (invisível e não colidível)")
+print("3 - Remover VIP e VIP_PLUS específicos")
+print("4 - Auto-remoção contínua")
+print("================================")
+
+-- Executar método escolhido (altere o número conforme desejado)
+local metodo = 2  -- Mude para 1, 2, 3 ou 4
+
+if metodo == 1 then
+    removeVIPWalls()
+elseif metodo == 2 then
+    bypassVIPWalls()
+elseif metodo == 3 then
+    removeSpecificVIPWalls()
+elseif metodo == 4 then
+    autoRemoveVIPWalls()
+else
+    warn("❌ Método inválido! Escolha entre 1, 2, 3 ou 4")
+end
+
+print("🎯 Script concluído!")
