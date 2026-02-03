@@ -1,0 +1,192 @@
+-- Script de Instant Interact (PC & Mobile)
+-- Interação instantânea com ProximityPrompts sem segurar botão
+
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+print("🚀 Instant Interact ativado!")
+print("💻 Compatível com PC e Mobile")
+
+-- Configurações
+local Settings = {
+    Enabled = true,
+    HoldDuration = 0, -- Duração de segurar (0 = instantâneo)
+    MaxDistance = 20, -- Distância máxima para interagir
+    ShowNotifications = true
+}
+
+-- Função para modificar ProximityPrompt
+local function setupPrompt(prompt)
+    if not prompt:IsA("ProximityPrompt") then return end
+    
+    -- Salvar valores originais
+    if not prompt:GetAttribute("OriginalHoldDuration") then
+        prompt:SetAttribute("OriginalHoldDuration", prompt.HoldDuration)
+        prompt:SetAttribute("OriginalMaxDistance", prompt.MaxActivationDistance)
+    end
+    
+    -- Aplicar instant interact
+    if Settings.Enabled then
+        prompt.HoldDuration = Settings.HoldDuration
+        prompt.MaxActivationDistance = Settings.MaxDistance
+        
+        -- Habilitar para mobile
+        prompt.RequiresLineOfSight = false
+        prompt.ClickablePrompt = true -- Permite clicar no mobile
+        
+        if Settings.ShowNotifications then
+            print("✅ Prompt modificado:", prompt.Parent.Name)
+        end
+    end
+end
+
+-- Aplicar em todos os ProximityPrompts existentes
+local function setupAllPrompts()
+    local count = 0
+    
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") then
+            setupPrompt(descendant)
+            count = count + 1
+        end
+    end
+    
+    print("🎯 " .. count .. " ProximityPrompts configurados!")
+end
+
+-- Monitorar novos ProximityPrompts
+workspace.DescendantAdded:Connect(function(descendant)
+    if descendant:IsA("ProximityPrompt") then
+        task.wait(0.1) -- Pequeno delay para garantir que está carregado
+        setupPrompt(descendant)
+    end
+end)
+
+-- Aplicar configuração inicial
+setupAllPrompts()
+
+-- Auto-trigger de ProximityPrompts próximos (opcional)
+local function autoTriggerNearbyPrompts()
+    if not LocalPlayer.Character then return end
+    
+    local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not humanoidRootPart then return end
+    
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") and descendant.Enabled then
+            local promptParent = descendant.Parent
+            
+            if promptParent and promptParent:IsA("BasePart") then
+                local distance = (humanoidRootPart.Position - promptParent.Position).Magnitude
+                
+                if distance <= descendant.MaxActivationDistance then
+                    -- Trigger automático
+                    fireproximityprompt(descendant)
+                end
+            end
+        end
+    end
+end
+
+-- Sistema de interface para mobile/PC
+local function createGUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "InstantInteractGUI"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+    
+    -- Botão de toggle
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Name = "ToggleButton"
+    ToggleButton.Size = UDim2.new(0, 150, 0, 50)
+    ToggleButton.Position = UDim2.new(0.5, -75, 0, 10)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    ToggleButton.Text = "✅ Instant Interact: ON"
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.TextSize = 14
+    ToggleButton.Parent = ScreenGui
+    
+    -- Corner para botão arredondado
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = ToggleButton
+    
+    -- Função de toggle
+    ToggleButton.MouseButton1Click:Connect(function()
+        Settings.Enabled = not Settings.Enabled
+        
+        if Settings.Enabled then
+            ToggleButton.Text = "✅ Instant Interact: ON"
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+            setupAllPrompts()
+        else
+            ToggleButton.Text = "❌ Instant Interact: OFF"
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+            restoreAllPrompts()
+        end
+    end)
+    
+    -- Botão de auto-trigger
+    local AutoTriggerButton = Instance.new("TextButton")
+    AutoTriggerButton.Name = "AutoTriggerButton"
+    AutoTriggerButton.Size = UDim2.new(0, 150, 0, 50)
+    AutoTriggerButton.Position = UDim2.new(0.5, -75, 0, 70)
+    AutoTriggerButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
+    AutoTriggerButton.Text = "🎯 Auto-Trigger"
+    AutoTriggerButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    AutoTriggerButton.Font = Enum.Font.GothamBold
+    AutoTriggerButton.TextSize = 14
+    AutoTriggerButton.Parent = ScreenGui
+    
+    local Corner2 = Instance.new("UICorner")
+    Corner2.CornerRadius = UDim.new(0, 10)
+    Corner2.Parent = AutoTriggerButton
+    
+    AutoTriggerButton.MouseButton1Click:Connect(function()
+        autoTriggerNearbyPrompts()
+        print("🎯 Auto-trigger executado!")
+    end)
+    
+    print("📱 Interface criada!")
+end
+
+-- Função para restaurar valores originais
+function restoreAllPrompts()
+    for _, descendant in pairs(workspace:GetDescendants()) do
+        if descendant:IsA("ProximityPrompt") then
+            local originalHold = descendant:GetAttribute("OriginalHoldDuration")
+            local originalDist = descendant:GetAttribute("OriginalMaxDistance")
+            
+            if originalHold then
+                descendant.HoldDuration = originalHold
+            end
+            if originalDist then
+                descendant.MaxActivationDistance = originalDist
+            end
+        end
+    end
+    print("🔄 Valores originais restaurados!")
+end
+
+-- Criar interface
+createGUI()
+
+-- Loop de monitoramento (opcional)
+task.spawn(function()
+    while task.wait(2) do
+        if Settings.Enabled then
+            -- Reaplica configurações caso algo mude
+            for _, descendant in pairs(workspace:GetDescendants()) do
+                if descendant:IsA("ProximityPrompt") and descendant.HoldDuration ~= Settings.HoldDuration then
+                    setupPrompt(descendant)
+                end
+            end
+        end
+    end
+end)
+
+print("✨ Script carregado com sucesso!")
+print("📱 Use os botões na tela para controlar")
+print("💡 Instant Interact = Sem segurar botão")
+print("💡 Auto-Trigger = Ativa prompts próximos automaticamente")
