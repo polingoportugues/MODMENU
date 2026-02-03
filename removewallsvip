@@ -1,8 +1,64 @@
--- Script para Remover Paredes VIP
+-- Script para Remover Paredes VIP + Bloqueio de Popup de Compra
 -- Baseado na estrutura: workspace.VIPWalls com partes "VIP" e "VIP_PLUS"
 
+-- Função para remover popups de compra Robux
+local function removeVIPPopups()
+    local player = game.Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+    
+    -- Buscar e remover GUIs de compra VIP
+    for _, gui in pairs(playerGui:GetChildren()) do
+        if gui:IsA("ScreenGui") then
+            -- Verificar se contém elementos relacionados a VIP/Robux
+            for _, element in pairs(gui:GetDescendants()) do
+                if element:IsA("TextLabel") or element:IsA("TextButton") then
+                    local text = element.Text:lower()
+                    -- Detectar palavras-chave de compra VIP
+                    if text:find("vip") or text:find("robux") or text:find("purchase") or 
+                       text:find("buy") or text:find("comprar") or text:find("premium") then
+                        gui:Destroy()
+                        print("🚫 Popup de compra VIP removido: " .. gui.Name)
+                        break
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Função para bloquear popups continuamente
+local function blockVIPPopups()
+    local player = game.Players.LocalPlayer
+    local playerGui = player:WaitForChild("PlayerGui")
+    
+    -- Monitorar novos GUIs sendo adicionados
+    playerGui.ChildAdded:Connect(function(gui)
+        wait(0.1) -- Pequeno delay para o GUI carregar
+        
+        if gui:IsA("ScreenGui") then
+            for _, element in pairs(gui:GetDescendants()) do
+                if element:IsA("TextLabel") or element:IsA("TextButton") then
+                    local text = element.Text:lower()
+                    if text:find("vip") or text:find("robux") or text:find("purchase") or 
+                       text:find("buy") or text:find("comprar") or text:find("premium") then
+                        gui:Destroy()
+                        print("🚫 Popup de compra VIP bloqueado automaticamente: " .. gui.Name)
+                        break
+                    end
+                end
+            end
+        end
+    end)
+    
+    print("✅ Bloqueio automático de popups VIP ativado!")
+end
+
+-- Método 1: Deletar completamente as paredes VIP
 local function removeVIPWalls()
     print("🔓 Iniciando remoção de paredes VIP...")
+    
+    -- Remover popups existentes
+    removeVIPPopups()
     
     -- Verificar se VIPWalls existe
     local vipWalls = workspace:FindFirstChild("VIPWalls")
@@ -12,7 +68,6 @@ local function removeVIPWalls()
         return
     end
     
-    -- Método 1: Deletar completamente as paredes VIP
     local wallsRemoved = 0
     local textRemoved = 0
     
@@ -35,14 +90,16 @@ local function removeVIPWalls()
     print("✅ " .. wallsRemoved .. " paredes VIP deletadas!")
     print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
     
-    -- Opcional: Deletar o container inteiro
-    -- vipWalls:Destroy()
-    -- print("✅ Container VIPWalls completamente removido!")
+    -- Ativar bloqueio contínuo de popups
+    blockVIPPopups()
 end
 
--- Método alternativo: Tornar paredes invisíveis e não colidíveis (mais seguro)
+-- Método 2: Tornar paredes invisíveis e não colidíveis (mais seguro)
 local function bypassVIPWalls()
     print("🔓 Iniciando bypass de paredes VIP...")
+    
+    -- Remover popups existentes
+    removeVIPPopups()
     
     local vipWalls = workspace:FindFirstChild("VIPWalls")
     
@@ -80,11 +137,17 @@ local function bypassVIPWalls()
     
     print("✅ " .. wallsBypassed .. " paredes VIP bypassed (invisíveis e não colidíveis)!")
     print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
+    
+    -- Ativar bloqueio contínuo de popups
+    blockVIPPopups()
 end
 
 -- Método 3: Remover paredes específicas (VIP e VIP_PLUS)
 local function removeSpecificVIPWalls()
     print("🔓 Removendo paredes VIP específicas...")
+    
+    -- Remover popups existentes
+    removeVIPPopups()
     
     local vipWalls = workspace:FindFirstChild("VIPWalls")
     
@@ -119,11 +182,20 @@ local function removeSpecificVIPWalls()
     print("✅ " .. vipRemoved .. " paredes VIP removidas!")
     print("✅ " .. vipPlusRemoved .. " paredes VIP_PLUS removidas!")
     print("✅ " .. textRemoved .. " textos/letreiros VIP removidos!")
+    
+    -- Ativar bloqueio contínuo de popups
+    blockVIPPopups()
 end
 
 -- Método 4: Sistema de auto-remoção contínua (caso as paredes respawnem)
 local function autoRemoveVIPWalls()
     print("🔄 Sistema de auto-remoção ativado...")
+    
+    -- Remover popups existentes
+    removeVIPPopups()
+    
+    -- Ativar bloqueio contínuo de popups
+    blockVIPPopups()
     
     game:GetService("RunService").Heartbeat:Connect(function()
         local vipWalls = workspace:FindFirstChild("VIPWalls")
@@ -148,16 +220,17 @@ local function autoRemoveVIPWalls()
     
     print("✅ Auto-remoção de paredes VIP ativada permanentemente!")
     print("✅ Textos VIP serão removidos automaticamente!")
+    print("✅ Popups de compra serão bloqueados automaticamente!")
 end
 
 -- Menu de seleção
-print("=== REMOVEDOR DE PAREDES VIP ===")
+print("=== REMOVEDOR DE PAREDES VIP + BLOQUEIO DE POPUP ===")
 print("Escolha o método:")
 print("1 - Deletar paredes VIP (permanente)")
 print("2 - Bypass (invisível e não colidível)")
 print("3 - Remover VIP e VIP_PLUS específicos")
 print("4 - Auto-remoção contínua")
-print("================================")
+print("=====================================================")
 
 -- Executar método escolhido (altere o número conforme desejado)
 local metodo = 2  -- Mude para 1, 2, 3 ou 4
@@ -174,4 +247,4 @@ else
     warn("❌ Método inválido! Escolha entre 1, 2, 3 ou 4")
 end
 
-print("🎯 Script concluído!")
+print("🎯 Script concluído com bloqueio de popups ativado!")
