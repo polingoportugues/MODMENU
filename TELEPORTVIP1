@@ -2,9 +2,6 @@
 -- Posição 1
 local position1 = Vector3.new(238.71, 3.23, 139.51)
 
--- Posição 2
-local position2 = Vector3.new(342.14, 3.72, 138.92)
-
 -- Configurações
 local maxTeleportDistance = 150
 local flySpeed = 200 -- Velocidade de voo (ajuste conforme necessário)
