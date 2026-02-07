@@ -1,6 +1,9 @@
--- Script de Teleporte para ROBLOX
--- Posição de destino
-local targetPosition = Vector3.new(238.71, 3.23, 139.51)
+-- Script de Teleporte para ROBLOX - DUAS POSIÇÕES
+-- Posição 1
+local position1 = Vector3.new(238.71, 3.23, 139.51)
+
+-- Posição 2
+local position2 = Vector3.new(342.14, 3.72, 138.92)
 
 -- Configurações
 local maxTeleportDistance = 150
@@ -105,12 +108,13 @@ local function flyToTarget(targetPos)
     teleportPlayer(targetPos)
 end
 
--- Função principal
-local function executeTeleport()
+-- Função para ir para uma posição
+local function goToPosition(targetPosition, positionName)
     local currentPos = HumanoidRootPart.Position
     local distance = getDistance(currentPos, targetPosition)
     
     print("==========================================")
+    print("Indo para " .. positionName)
     print("Distância até o destino: " .. math.floor(distance) .. " metros")
     print("==========================================")
     
@@ -125,5 +129,28 @@ local function executeTeleport()
     end
 end
 
+-- Função principal - IR PARA POSIÇÃO 1
+local function goToPosition1()
+    goToPosition(position1, "POSIÇÃO 1")
+end
+
+-- Função principal - IR PARA POSIÇÃO 2
+local function goToPosition2()
+    goToPosition(position2, "POSIÇÃO 2")
+end
+
 -- EXECUTAR O SCRIPT
-executeTeleport()
+print("==========================================")
+print("SCRIPT DE TELEPORTE - DUAS POSIÇÕES")
+print("==========================================")
+print("Posição 1: " .. tostring(position1))
+print("Posição 2: " .. tostring(position2))
+print("==========================================")
+
+-- ESCOLHA QUAL POSIÇÃO VOCÊ QUER IR:
+
+-- Descomentar a linha abaixo para ir para POSIÇÃO 1
+goToPosition1()
+
+-- Descomentar a linha abaixo para ir para POSIÇÃO 2
+-- goToPosition2()
