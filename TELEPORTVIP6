@@ -1,0 +1,130 @@
+-- Script de Teleporte para ROBLOX - POSIÇÃO 6
+-- Posição de destino
+local targetPosition = Vector3.new(922.94, 3.75, 138.53)
+
+-- Configurações
+local maxTeleportDistance = 150
+local flySpeed = 200 -- Velocidade de voo (ajuste conforme necessário)
+
+-- Obter o player local
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
+
+-- Variáveis de controle
+local isFlying = false
+local noclipEnabled = false
+
+-- Função para calcular distância
+local function getDistance(pos1, pos2)
+    return (pos1 - pos2).Magnitude
+end
+
+-- Função de Noclip
+local function setNoclip(enabled)
+    noclipEnabled = enabled
+    
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            part.CanCollide = not enabled
+        end
+    end
+end
+
+-- Função para teleportar
+local function teleportPlayer(position)
+    HumanoidRootPart.CFrame = CFrame.new(position)
+    print("Teleportado para: " .. tostring(position))
+end
+
+-- Função de voo
+local function flyToTarget(targetPos)
+    isFlying = true
+    setNoclip(true)
+    
+    print("Iniciando voo para o destino...")
+    
+    -- Criar BodyVelocity para movimento
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = HumanoidRootPart
+    
+    -- Criar BodyGyro para estabilidade
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+    bodyGyro.P = 9000
+    bodyGyro.CFrame = HumanoidRootPart.CFrame
+    bodyGyro.Parent = HumanoidRootPart
+    
+    -- Loop de voo
+    while isFlying do
+        task.wait()
+        
+        local currentPos = HumanoidRootPart.Position
+        local distance = getDistance(currentPos, targetPos)
+        
+        -- Verificar se chegou
+        if distance < 3 then
+            print("Chegou ao destino!")
+            isFlying = false
+            break
+        end
+        
+        -- Calcular direção
+        local direction = (targetPos - currentPos).Unit
+        
+        -- Ajustar velocidade baseada na distância
+        local currentSpeed = flySpeed
+        if distance > 500 then
+            currentSpeed = flySpeed * 2
+        elseif distance < 50 then
+            currentSpeed = flySpeed * 0.5
+        end
+        
+        -- Aplicar velocidade
+        bodyVelocity.Velocity = direction * currentSpeed
+        bodyGyro.CFrame = CFrame.new(currentPos, targetPos)
+        
+        -- Mostrar progresso a cada 100 metros
+        if math.floor(distance) % 100 == 0 then
+            print("Distância restante: " .. math.floor(distance) .. " metros")
+        end
+    end
+    
+    -- Limpar objetos de voo
+    bodyVelocity:Destroy()
+    bodyGyro:Destroy()
+    
+    -- Desativar noclip
+    setNoclip(false)
+    
+    -- Teleporte final para posição exata
+    teleportPlayer(targetPos)
+end
+
+-- Função principal
+local function executeTeleport()
+    local currentPos = HumanoidRootPart.Position
+    local distance = getDistance(currentPos, targetPosition)
+    
+    print("==========================================")
+    print("POSIÇÃO 6: " .. tostring(targetPosition))
+    print("Distância até o destino: " .. math.floor(distance) .. " metros")
+    print("==========================================")
+    
+    if distance <= maxTeleportDistance then
+        -- Teleporte direto
+        print("Teleportando diretamente...")
+        teleportPlayer(targetPosition)
+    else
+        -- Voar até o destino
+        print("Distância muito grande, iniciando voo...")
+        flyToTarget(targetPosition)
+    end
+end
+
+-- EXECUTAR O SCRIPT
+executeTeleport()
