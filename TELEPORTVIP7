@@ -1,6 +1,6 @@
 -- Script de Teleporte para ROBLOX - POSIÇÃO 8
 -- Posição de destino
-local targetPosition = Vector3.new(1960.77, 3.76, 138.59)
+local targetPosition = Vector3.new(1962.77, 3.76, 138.59)
 
 -- Configurações
 local maxTeleportDistance = 150
