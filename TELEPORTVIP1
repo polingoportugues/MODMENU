@@ -1,6 +1,6 @@
 -- Script de Teleporte para ROBLOX - SEM ANCORAGEM E SEM QUEDA
 -- Posição de destino
-local targetPosition = Vector3.new(238.71, 3.23, 139.51)
+local targetPosition = Vector3.new(238.71, 3.23, 138.51)
 
 -- Configurações
 local maxTeleportDistance = 150
