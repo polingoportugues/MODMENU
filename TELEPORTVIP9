@@ -1,0 +1,169 @@
+-- Script de Teleporte para ROBLOX - POSIÇÃO 8 - CORRIGIDO
+-- Posição de destino
+local targetPosition = Vector3.new(2401.93, 3.76, 136.10)
+
+-- Configurações
+local maxTeleportDistance = 150
+local flySpeed = 250
+
+-- Obter o player local
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+local Humanoid = Character:WaitForChild("Humanoid")
+
+-- Variáveis de controle
+local isFlying = false
+local noclipConnection = nil
+
+-- Função para calcular distância
+local function getDistance(pos1, pos2)
+    return (pos1 - pos2).Magnitude
+end
+
+-- Função de Noclip CORRIGIDA
+local function enableNoclip()
+    if noclipConnection then return end
+    
+    print("✓ NOCLIP ATIVADO - Atravessando paredes")
+    
+    noclipConnection = RunService.Stepped:Connect(function()
+        for _, part in pairs(Character:GetDescendants()) do
+            if part:IsA("BasePart") then
+                part.CanCollide = false
+            end
+        end
+    end)
+end
+
+-- Função para desativar Noclip
+local function disableNoclip()
+    if noclipConnection then
+        noclipConnection:Disconnect()
+        noclipConnection = nil
+        print("✓ NOCLIP DESATIVADO")
+    end
+    
+    task.wait(0.1)
+    
+    for _, part in pairs(Character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            if part.Name == "HumanoidRootPart" then
+                part.CanCollide = true
+            else
+                part.CanCollide = false
+            end
+        end
+    end
+end
+
+-- Função para teleportar
+local function teleportPlayer(position)
+    HumanoidRootPart.CFrame = CFrame.new(position)
+    HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    HumanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+    task.wait(0.1)
+    print("✓ Teleportado para: " .. tostring(position))
+end
+
+-- Função de voo CORRIGIDA
+local function flyToTarget(targetPos)
+    isFlying = true
+    enableNoclip()
+    
+    print("✓ Iniciando voo para o destino...")
+    
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = HumanoidRootPart
+    
+    local bodyGyro = Instance.new("BodyGyro")
+    bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+    bodyGyro.P = 9000
+    bodyGyro.D = 500
+    bodyGyro.CFrame = HumanoidRootPart.CFrame
+    bodyGyro.Parent = HumanoidRootPart
+    
+    local bodyPosition = Instance.new("BodyPosition")
+    bodyPosition.MaxForce = Vector3.new(0, math.huge, 0)
+    bodyPosition.Position = HumanoidRootPart.Position
+    bodyPosition.P = 10000
+    bodyPosition.D = 500
+    bodyPosition.Parent = HumanoidRootPart
+    
+    local lastPrint = 0
+    while isFlying do
+        task.wait()
+        
+        local currentPos = HumanoidRootPart.Position
+        local distance = getDistance(currentPos, targetPos)
+        
+        if distance < 5 then
+            print("✓ Chegou ao destino!")
+            isFlying = false
+            break
+        end
+        
+        local direction = (targetPos - currentPos).Unit
+        
+        local currentSpeed = flySpeed
+        if distance > 1000 then
+            currentSpeed = flySpeed * 3
+        elseif distance > 500 then
+            currentSpeed = flySpeed * 2
+        elseif distance < 50 then
+            currentSpeed = flySpeed * 0.3
+        end
+        
+        bodyPosition.Position = currentPos + (direction * 10)
+        bodyVelocity.Velocity = direction * currentSpeed
+        bodyGyro.CFrame = CFrame.new(currentPos, targetPos)
+        
+        local distFloor = math.floor(distance)
+        if distFloor ~= lastPrint and distFloor % 100 == 0 then
+            print("→ Distância restante: " .. distFloor .. " metros")
+            lastPrint = distFloor
+        end
+    end
+    
+    if bodyVelocity then bodyVelocity:Destroy() end
+    if bodyGyro then bodyGyro:Destroy() end
+    if bodyPosition then bodyPosition:Destroy() end
+    
+    task.wait(0.1)
+    disableNoclip()
+    
+    HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    HumanoidRootPart.RotVelocity = Vector3.new(0, 0, 0)
+    
+    task.wait(0.1)
+    HumanoidRootPart.CFrame = CFrame.new(targetPos)
+    
+    task.wait(0.1)
+    print("✓ Voo concluído!")
+end
+
+-- Função principal
+local function executeTeleport()
+    local currentPos = HumanoidRootPart.Position
+    local distance = getDistance(currentPos, targetPosition)
+    
+    print("==========================================")
+    print("POSIÇÃO 8: " .. tostring(targetPosition))
+    print("Distância até o destino: " .. math.floor(distance) .. " metros")
+    print("==========================================")
+    
+    if distance <= maxTeleportDistance then
+        print("→ Teleportando diretamente...")
+        teleportPlayer(targetPosition)
+        print("✓ Teleporte concluído!")
+    else
+        print("→ Distância muito grande, iniciando voo...")
+        flyToTarget(targetPosition)
+    end
+end
+
+executeTeleport()
