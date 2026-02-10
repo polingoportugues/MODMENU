@@ -1,0 +1,188 @@
+-- ESP RARE Lucky Blocks
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+
+local CONFIG = {
+    MaxDistance = 1000,
+    TextSize = 16,
+    TextStrokeTransparency = 0.5,
+    RarityName = "Rare",
+    RarityColor = Color3.fromRGB(0, 170, 255),
+}
+
+local IGNORE_NAMES = {
+    ["Floor"] = true, ["floor"] = true, ["Platform"] = true, ["platform"] = true,
+    ["Ground"] = true, ["ground"] = true, ["FirstFloor"] = true, ["SecondFloor"] = true,
+    ["ThirdFloor"] = true, ["Line"] = true, ["Teleport"] = true,
+}
+
+local billboards = {}
+
+local function isValidLuckyBlock(obj)
+    local name = obj.Name
+    for ignoreName, _ in pairs(IGNORE_NAMES) do
+        if name:find(ignoreName) then return false end
+    end
+    if name:find("LuckyBlock") then return true end
+    if obj:IsA("Model") or obj:IsA("Folder") then
+        if obj:FindFirstChild("BlockCtrl") then return true end
+    end
+    if obj:IsA("BasePart") then
+        local size = obj.Size
+        if size.Y < 2 then return false end
+        if (size.X > size.Y * 3) or (size.Z > size.Y * 3) then return false end
+    end
+    return true
+end
+
+local function createBillboard(part)
+    if billboards[part] then billboards[part]:Destroy() end
+    
+    local billboard = Instance.new("BillboardGui")
+    billboard.Name = "ESP_Billboard"
+    billboard.Adornee = part
+    billboard.Size = UDim2.new(0, 200, 0, 50)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = part
+    
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Name = "NameLabel"
+    nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text = CONFIG.RarityName
+    nameLabel.TextColor3 = CONFIG.RarityColor
+    nameLabel.TextSize = CONFIG.TextSize
+    nameLabel.TextStrokeTransparency = CONFIG.TextStrokeTransparency
+    nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    nameLabel.Font = Enum.Font.SourceSansBold
+    nameLabel.Parent = billboard
+    
+    local distanceLabel = Instance.new("TextLabel")
+    distanceLabel.Name = "DistanceLabel"
+    distanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
+    distanceLabel.Position = UDim2.new(0, 0, 0.5, 0)
+    distanceLabel.BackgroundTransparency = 1
+    distanceLabel.Text = "0m"
+    distanceLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    distanceLabel.TextSize = CONFIG.TextSize - 2
+    distanceLabel.TextStrokeTransparency = CONFIG.TextStrokeTransparency
+    distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+    distanceLabel.Font = Enum.Font.SourceSans
+    distanceLabel.Parent = billboard
+    
+    billboards[part] = billboard
+end
+
+local function updateDistance(part)
+    if not billboards[part] or not part:IsDescendantOf(workspace) then return end
+    
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    
+    local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
+    
+    if distance > CONFIG.MaxDistance then
+        billboards[part].Enabled = false
+    else
+        billboards[part].Enabled = true
+        local distanceLabel = billboards[part]:FindFirstChild("DistanceLabel")
+        if distanceLabel then
+            distanceLabel.Text = string.format("%.1fm", distance)
+        end
+    end
+end
+
+local function processLuckyBlock(block)
+    if not isValidLuckyBlock(block) then return end
+    local rootPart = block:FindFirstChild("RootPart")
+    if rootPart and rootPart:IsA("BasePart") and block.Name:find(CONFIG.RarityName) then
+        createBillboard(rootPart)
+    end
+end
+
+local function processSpawner(spawner)
+    if not isValidLuckyBlock(spawner) then return end
+    if spawner:IsA("BasePart") then
+        createBillboard(spawner)
+    elseif spawner:IsA("Model") or spawner:IsA("Folder") then
+        local mainPart = spawner:FindFirstChild("RootPart") or spawner:FindFirstChild("Part") or spawner:FindFirstChildWhichIsA("BasePart")
+        if mainPart then createBillboard(mainPart) end
+    end
+end
+
+local function scanSpawnersInContainer(container)
+    if not container then return end
+    for _, child in pairs(container:GetChildren()) do
+        if not IGNORE_NAMES[child.Name] and child.Name == CONFIG.RarityName then
+            processSpawner(child)
+        end
+    end
+    container.ChildAdded:Connect(function(child)
+        task.wait(0.1)
+        if not IGNORE_NAMES[child.Name] and child.Name == CONFIG.RarityName then
+            processSpawner(child)
+        end
+    end)
+end
+
+local function scanMap(map)
+    local spawners = map:FindFirstChild("Spawners")
+    if spawners then scanSpawnersInContainer(spawners) end
+    
+    local og = map:FindFirstChild("OG")
+    if og then scanSpawnersInContainer(og) end
+    
+    local defaultStudioMap = map:FindFirstChild("DefaultStudioMap")
+    if defaultStudioMap then
+        local studioSpawners = defaultStudioMap:FindFirstChild("Spawners")
+        if studioSpawners then scanSpawnersInContainer(studioSpawners) end
+    end
+    
+    for _, child in pairs(map:GetDescendants()) do
+        if child.Name == "Spawners" and child:IsA("Folder") then
+            scanSpawnersInContainer(child)
+        end
+    end
+end
+
+local function scanAllMaps()
+    for _, child in pairs(workspace:GetChildren()) do
+        if child.Name:match("Map$") then scanMap(child) end
+    end
+    workspace.ChildAdded:Connect(function(child)
+        task.wait(0.2)
+        if child.Name:match("Map$") or child:FindFirstChild("Spawners") then
+            scanMap(child)
+        end
+    end)
+end
+
+local function scanActiveLuckyBlocks()
+    local activeLuckyBlocks = workspace:FindFirstChild("ActiveLuckyBlocks")
+    if activeLuckyBlocks then
+        for _, block in pairs(activeLuckyBlocks:GetChildren()) do
+            processLuckyBlock(block)
+        end
+        activeLuckyBlocks.ChildAdded:Connect(function(block)
+            task.wait(0.1)
+            processLuckyBlock(block)
+        end)
+    end
+end
+
+print("ESP RARE ativado!")
+scanActiveLuckyBlocks()
+scanAllMaps()
+
+RunService.RenderStepped:Connect(function()
+    for part, billboard in pairs(billboards) do
+        if part and part:IsDescendantOf(workspace) then
+            updateDistance(part)
+        else
+            billboard:Destroy()
+            billboards[part] = nil
+        end
+    end
+end)
