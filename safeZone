@@ -1,0 +1,194 @@
+-- Script combinado: Ajusta RightWalls/Bottoms + Remove paredes VIP + Efeito RGB Rainbow
+print("🔄 Iniciando script combinado...")
+
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+-- =======================================================
+-- TABELA PARA ARMAZENAR TODOS OS BOTTOMS
+-- =======================================================
+local allBottoms = {}
+
+-- =======================================================
+-- PARTE 1: REMOVER TODAS AS PAREDES VIP
+-- =======================================================
+local function removeAllVIPContent()
+    print("\n🗑️ Removendo paredes VIP...")
+    
+    local defaultMap = Workspace:FindFirstChild("DefaultMap_SharedInstances")
+    
+    if not defaultMap then
+        warn("DefaultMap_SharedInstances não encontrado!")
+        return
+    end
+    
+    local removed = 0
+    
+    -- Remove VIPWalls
+    local vipWalls = defaultMap:FindFirstChild("VIPWalls")
+    if vipWalls then
+        for _, child in pairs(vipWalls:GetChildren()) do
+            child:Destroy()
+            removed = removed + 1
+        end
+        print("✅ VIPWalls limpo! Itens removidos: " .. removed)
+    end
+    
+    -- Remove VipWalls_PLUS
+    local vipWallsPlus = defaultMap:FindFirstChild("VipWalls_PLUS")
+    if vipWallsPlus then
+        for _, child in pairs(vipWallsPlus:GetChildren()) do
+            child:Destroy()
+            removed = removed + 1
+        end
+        print("✅ VipWalls_PLUS limpo! Itens removidos: " .. removed)
+    end
+    
+    -- Procura por qualquer pasta com "VIP" no nome
+    for _, folder in pairs(defaultMap:GetChildren()) do
+        if folder.Name:match("VIP") or folder.Name:match("Vip") then
+            for _, child in pairs(folder:GetChildren()) do
+                child:Destroy()
+                removed = removed + 1
+            end
+            print("✅ " .. folder.Name .. " limpo!")
+        end
+    end
+    
+    print("🎯 TOTAL DE OBJETOS VIP REMOVIDOS: " .. removed)
+end
+
+-- =======================================================
+-- PARTE 2: AJUSTAR RIGHTWALLS E BOTTOMS
+-- =======================================================
+local function adjustRightWallsAndBottoms()
+    print("\n🔄 Ajustando RightWalls e Bottoms...")
+    
+    local mapas = {
+        "DefaultMap",
+        "MoneyMap",
+        "ArcadeMap",
+        "DefaultStudioMap",
+        "RadioactiveMap",
+        "MarsMap"
+    }
+    
+    local TARGET_Z = 145
+    local TARGET_SIZE = Vector3.new(6.0, 10.0, 1000.0)
+    
+    local totalPartesMovidas = 0
+    local totalBottomsResized = 0
+    
+    for _, nomeMapa in ipairs(mapas) do
+        
+        local mapa = Workspace:FindFirstChild(nomeMapa)
+        if not mapa then continue end
+        
+        local pasta = mapa:FindFirstChild("RightWalls")
+        if not pasta then continue end
+        
+        print("📍 Processando mapa:", nomeMapa)
+        
+        for _, model in ipairs(pasta:GetChildren()) do
+            
+            local numero = tonumber(model.Name:match("%d+"))
+            
+            if numero and numero >= 1 and numero <= 7 then
+                
+                print("➡ Processando:", model.Name)
+                
+                for _, obj in ipairs(model:GetDescendants()) do
+                    
+                    -- =========================
+                    -- MOVER PARTES (EXCETO Bottom)
+                    -- =========================
+                    if obj:IsA("BasePart") and obj.Name ~= "Bottom" then
+                        
+                        local pos = obj.Position
+                        local z = pos.Z
+                        local novoZ = nil
+                        
+                        if math.abs(z - 135) < 2 then
+                            novoZ = TARGET_Z
+                        elseif math.abs(z + 135) < 2 then
+                            novoZ = -TARGET_Z
+                        end
+                        
+                        if novoZ then
+                            obj.Position = Vector3.new(pos.X, pos.Y, novoZ)
+                            totalPartesMovidas += 1
+                        end
+                    end
+                    
+                    -- =========================
+                    -- REDIMENSIONAR Bottom (SEM MOVER) + ADICIONAR À LISTA
+                    -- =========================
+                    if obj:IsA("BasePart") and obj.Name == "Bottom" then
+                        
+                        local originalCFrame = obj.CFrame
+                        obj.Size = TARGET_SIZE
+                        obj.CFrame = originalCFrame -- força voltar exatamente
+                        
+                        -- Adiciona o Bottom à tabela para efeito RGB
+                        table.insert(allBottoms, obj)
+                        
+                        totalBottomsResized += 1
+                        
+                        print("✅ Bottom redimensionado sem mover:", model.Name)
+                    end
+                end
+            end
+        end
+    end
+    
+    print("\n═══════════════════════════════════")
+    print("✅ Ajustes concluídos!")
+    print("📍 Partes movidas:", totalPartesMovidas)
+    print("📏 Bottoms redimensionados:", totalBottomsResized)
+    print("🌈 Bottoms prontos para RGB:", #allBottoms)
+    print("═══════════════════════════════════")
+end
+
+-- =======================================================
+-- PARTE 3: EFEITO RGB RAINBOW SINCRONIZADO (RÁPIDO)
+-- =======================================================
+local function startRainbowEffect()
+    print("\n🌈 Iniciando efeito Rainbow RGB nos Bottoms...")
+    
+    if #allBottoms == 0 then
+        warn("⚠️ Nenhum Bottom encontrado para aplicar o efeito RGB!")
+        return
+    end
+    
+    local hue = 0
+    
+    -- Loop infinito para atualizar as cores
+    RunService.RenderStepped:Connect(function()
+        
+        -- Incrementa o matiz (hue) MAIS RÁPIDO para criar o efeito rainbow acelerado
+        hue = (hue + 3) % 360  -- ⚡ Mudei de 0.5 para 3 (6x mais rápido!)
+        
+        -- Converte HSV para RGB
+        local color = Color3.fromHSV(hue / 360, 1, 1)
+        
+        -- Aplica a mesma cor a todos os Bottoms simultaneamente
+        for _, bottom in ipairs(allBottoms) do
+            if bottom and bottom.Parent then
+                bottom.Color = color
+                bottom.Material = Enum.Material.Neon -- Deixa mais brilhante
+            end
+        end
+    end)
+    
+    print("✅ Efeito Rainbow RGB RÁPIDO ativado em " .. #allBottoms .. " Bottoms!")
+end
+
+-- =======================================================
+-- EXECUÇÃO DO SCRIPT COMBINADO
+-- =======================================================
+removeAllVIPContent()
+adjustRightWallsAndBottoms()
+startRainbowEffect()
+
+print("\n🎉 SCRIPT COMBINADO FINALIZADO COM SUCESSO!")
+print("🌈 Todos os Bottoms estão sincronizados com efeito Rainbow RGB RÁPIDO!")
