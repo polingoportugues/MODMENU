@@ -1,0 +1,625 @@
+-- Anxiie Hub ImGui
+-- ImGui responsivo para mobile com animações
+
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+-- Configurações
+local Config = {
+    MainColor = Color3.fromRGB(30, 30, 40),
+    SecondaryColor = Color3.fromRGB(40, 40, 50),
+    TextColor = Color3.fromRGB(255, 255, 255),
+    AccentColor = Color3.fromRGB(100, 100, 255),
+    BorderWidth = 3,
+    CornerRadius = 12,
+    AnimationSpeed = 0.3
+}
+
+-- Criar ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "AnxiieHub"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Função para criar bordas arredondadas
+local function CreateRoundedFrame(parent, name, size, position, backgroundColor)
+    local frame = Instance.new("Frame")
+    frame.Name = name
+    frame.Size = size
+    frame.Position = position
+    frame.BackgroundColor3 = backgroundColor
+    frame.BorderSizePixel = 0
+    frame.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, Config.CornerRadius)
+    corner.Parent = frame
+    
+    return frame
+end
+
+-- Container da Borda Rainbow (externo)
+local BorderContainer = Instance.new("Frame")
+BorderContainer.Name = "BorderContainer"
+BorderContainer.Size = UDim2.new(0, 500 + (Config.BorderWidth * 2), 0, 320 + (Config.BorderWidth * 2))
+BorderContainer.Position = UDim2.new(0.5, -250 - Config.BorderWidth, 0.5, -160 - Config.BorderWidth)
+BorderContainer.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+BorderContainer.BorderSizePixel = 0
+BorderContainer.Parent = ScreenGui
+
+local BorderCorner = Instance.new("UICorner")
+BorderCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
+BorderCorner.Parent = BorderContainer
+
+-- Frame Principal (interno, sobre a borda)
+local MainFrame = CreateRoundedFrame(BorderContainer, "MainFrame", 
+    UDim2.new(1, -Config.BorderWidth * 2, 1, -Config.BorderWidth * 2), 
+    UDim2.new(0, Config.BorderWidth, 0, Config.BorderWidth), 
+    Config.MainColor
+)
+MainFrame.ZIndex = 2
+MainFrame.ClipsDescendants = true
+
+-- Tornar BorderContainer arrastável
+BorderContainer.Active = true
+local dragging = false
+local dragInput, dragStart, startPos
+
+local function update(input)
+    local delta = input.Position - dragStart
+    BorderContainer.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+end
+
+BorderContainer.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = BorderContainer.Position
+        
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+BorderContainer.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+-- Animação Rainbow na Borda
+local hue = 0
+RunService.RenderStepped:Connect(function()
+    hue = (hue + 0.005) % 1
+    BorderContainer.BackgroundColor3 = Color3.fromHSV(hue, 1, 1)
+end)
+
+-- Barra Superior
+local TopBar = CreateRoundedFrame(MainFrame, "TopBar", 
+    UDim2.new(1, 0, 0, 50), 
+    UDim2.new(0, 0, 0, 0), 
+    Config.SecondaryColor
+)
+
+local TopBarCorner = TopBar:FindFirstChildOfClass("UICorner")
+if TopBarCorner then
+    TopBarCorner.CornerRadius = UDim.new(0, Config.CornerRadius)
+end
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Size = UDim2.new(0, 150, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "Anxiie Hub"
+Title.TextColor3 = Config.TextColor
+Title.TextSize = 20
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+-- Botão Minimizar/Maximizar
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Size = UDim2.new(0, 40, 0, 40)
+ToggleButton.Position = UDim2.new(1, -50, 0, 5)
+ToggleButton.BackgroundColor3 = Config.AccentColor
+ToggleButton.BorderSizePixel = 0
+ToggleButton.Text = "─"
+ToggleButton.TextColor3 = Config.TextColor
+ToggleButton.TextSize = 20
+ToggleButton.Font = Enum.Font.GothamBold
+ToggleButton.Parent = TopBar
+
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0, 8)
+ToggleCorner.Parent = ToggleButton
+
+-- Container de Páginas
+local TabContainer = Instance.new("Frame")
+TabContainer.Name = "TabContainer"
+TabContainer.Size = UDim2.new(1, -20, 0, 40)
+TabContainer.Position = UDim2.new(0, 10, 0, 60)
+TabContainer.BackgroundTransparency = 1
+TabContainer.Parent = MainFrame
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.FillDirection = Enum.FillDirection.Horizontal
+TabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+TabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabLayout.Padding = UDim.new(0, 5)
+TabLayout.Parent = TabContainer
+
+-- Container de Conteúdo
+local ContentFrame = CreateRoundedFrame(MainFrame, "ContentFrame", 
+    UDim2.new(1, -20, 1, -120), 
+    UDim2.new(0, 10, 0, 110), 
+    Config.SecondaryColor
+)
+
+-- Sistema de Páginas
+local Pages = {
+    {Name = "Player", Icon = "👤"},
+    {Name = "Esp", Icon = "👁"},
+    {Name = "Misc", Icon = "⚙"},
+    {Name = "Events", Icon = "📅"},
+    {Name = "Settings", Icon = "🔧"}
+}
+
+local CurrentPage = "Player"
+local PageFrames = {}
+
+-- Função para criar botão de tab
+local function CreateTabButton(pageName, icon, index)
+    local button = Instance.new("TextButton")
+    button.Name = pageName .. "Tab"
+    button.Size = UDim2.new(0, 70, 1, 0)
+    button.BackgroundColor3 = Config.MainColor
+    button.BorderSizePixel = 0
+    button.Text = icon .. "\n" .. pageName
+    button.TextColor3 = Config.TextColor
+    button.TextSize = 12
+    button.Font = Enum.Font.Gotham
+    button.LayoutOrder = index
+    button.Parent = TabContainer
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 8)
+    corner.Parent = button
+    
+    return button
+end
+
+-- Função para criar conteúdo de página
+local function CreatePageContent(pageName)
+    local pageFrame = Instance.new("ScrollingFrame")
+    pageFrame.Name = pageName .. "Page"
+    pageFrame.Size = UDim2.new(1, -10, 1, -10)
+    pageFrame.Position = UDim2.new(0, 5, 0, 5)
+    pageFrame.BackgroundTransparency = 1
+    pageFrame.BorderSizePixel = 0
+    pageFrame.ScrollBarThickness = 6
+    pageFrame.ScrollBarImageColor3 = Config.AccentColor
+    pageFrame.Visible = false
+    pageFrame.Parent = ContentFrame
+    
+    local layout = Instance.new("UIListLayout")
+    layout.SortOrder = Enum.SortOrder.LayoutOrder
+    layout.Padding = UDim.new(0, 8)
+    layout.Parent = pageFrame
+    
+    local padding = Instance.new("UIPadding")
+    padding.PaddingLeft = UDim.new(0, 5)
+    padding.PaddingRight = UDim.new(0, 5)
+    padding.PaddingTop = UDim.new(0, 5)
+    padding.PaddingBottom = UDim.new(0, 5)
+    padding.Parent = pageFrame
+    
+    return pageFrame
+end
+
+-- Função para criar botão
+local function CreateButton(parent, text, callback)
+    local button = Instance.new("TextButton")
+    button.Size = UDim2.new(1, 0, 0, 35)
+    button.BackgroundColor3 = Config.MainColor
+    button.BorderSizePixel = 0
+    button.Text = text
+    button.TextColor3 = Config.TextColor
+    button.TextSize = 14
+    button.Font = Enum.Font.Gotham
+    button.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = button
+    
+    button.MouseButton1Click:Connect(function()
+        TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = Config.AccentColor}):Play()
+        wait(0.1)
+        TweenService:Create(button, TweenInfo.new(0.1), {BackgroundColor3 = Config.MainColor}):Play()
+        if callback then callback() end
+    end)
+    
+    return button
+end
+
+-- Função para criar toggle
+local function CreateToggle(parent, text, default, callback)
+    local toggleFrame = Instance.new("Frame")
+    toggleFrame.Size = UDim2.new(1, 0, 0, 35)
+    toggleFrame.BackgroundColor3 = Config.MainColor
+    toggleFrame.BorderSizePixel = 0
+    toggleFrame.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = toggleFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -50, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = text
+    label.TextColor3 = Config.TextColor
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = toggleFrame
+    
+    local toggle = Instance.new("TextButton")
+    toggle.Size = UDim2.new(0, 40, 0, 20)
+    toggle.Position = UDim2.new(1, -45, 0.5, -10)
+    toggle.BackgroundColor3 = default and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    toggle.BorderSizePixel = 0
+    toggle.Text = ""
+    toggle.Parent = toggleFrame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(1, 0)
+    toggleCorner.Parent = toggle
+    
+    local toggled = default
+    toggle.MouseButton1Click:Connect(function()
+        toggled = not toggled
+        local newColor = toggled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        TweenService:Create(toggle, TweenInfo.new(0.2), {BackgroundColor3 = newColor}):Play()
+        if callback then callback(toggled) end
+    end)
+    
+    return toggleFrame
+end
+
+-- Função para criar slider
+local function CreateSlider(parent, text, min, max, default, callback)
+    local sliderFrame = Instance.new("Frame")
+    sliderFrame.Size = UDim2.new(1, 0, 0, 50)
+    sliderFrame.BackgroundColor3 = Config.MainColor
+    sliderFrame.BorderSizePixel = 0
+    sliderFrame.Parent = parent
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = sliderFrame
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 20)
+    label.Position = UDim2.new(0, 10, 0, 5)
+    label.BackgroundTransparency = 1
+    label.Text = text .. ": " .. default
+    label.TextColor3 = Config.TextColor
+    label.TextSize = 14
+    label.Font = Enum.Font.Gotham
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = sliderFrame
+    
+    local sliderBack = Instance.new("Frame")
+    sliderBack.Size = UDim2.new(1, -20, 0, 6)
+    sliderBack.Position = UDim2.new(0, 10, 1, -15)
+    sliderBack.BackgroundColor3 = Config.SecondaryColor
+    sliderBack.BorderSizePixel = 0
+    sliderBack.Parent = sliderFrame
+    
+    local sliderCorner = Instance.new("UICorner")
+    sliderCorner.CornerRadius = UDim.new(1, 0)
+    sliderCorner.Parent = sliderBack
+    
+    local sliderFill = Instance.new("Frame")
+    sliderFill.Size = UDim2.new((default - min) / (max - min), 0, 1, 0)
+    sliderFill.BackgroundColor3 = Config.AccentColor
+    sliderFill.BorderSizePixel = 0
+    sliderFill.Parent = sliderBack
+    
+    local fillCorner = Instance.new("UICorner")
+    fillCorner.CornerRadius = UDim.new(1, 0)
+    fillCorner.Parent = sliderFill
+    
+    local dragging = false
+    sliderBack.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+    
+    sliderBack.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local pos = math.clamp((input.Position.X - sliderBack.AbsolutePosition.X) / sliderBack.AbsoluteSize.X, 0, 1)
+            sliderFill.Size = UDim2.new(pos, 0, 1, 0)
+            local value = math.floor(min + (max - min) * pos)
+            label.Text = text .. ": " .. value
+            if callback then callback(value) end
+        end
+    end)
+    
+    return sliderFrame
+end
+
+-- Função SafeZone
+local function TeleportToSafeZone()
+    local Players = game:GetService("Players")
+    local player = Players.LocalPlayer
+    
+    if not player or not player.Character then
+        warn("Player or Character not found!")
+        return
+    end
+    
+    local character = player.Character
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    
+    if not humanoidRootPart then
+        warn("HumanoidRootPart not found!")
+        return
+    end
+    
+    -- Procurar pela SafeZone no workspace
+    local safeZone = workspace:FindFirstChild("SafeZone")
+    
+    if safeZone then
+        -- Procurar por uma parte principal dentro da SafeZone
+        local safeZonePart = safeZone:FindFirstChildWhichIsA("BasePart")
+        
+        if safeZonePart then
+            -- Teleportar para a SafeZone (um pouco acima para evitar ficar preso)
+            humanoidRootPart.CFrame = safeZonePart.CFrame + Vector3.new(0, 5, 0)
+            print("Teleported to SafeZone!")
+        else
+            warn("No BasePart found in SafeZone!")
+        end
+    else
+        warn("SafeZone not found in workspace!")
+    end
+end
+
+-- Criar páginas e botões
+for i, page in ipairs(Pages) do
+    local tabButton = CreateTabButton(page.Name, page.Icon, i)
+    local pageFrame = CreatePageContent(page.Name)
+    PageFrames[page.Name] = pageFrame
+    
+    -- Adicionar conteúdo de exemplo em cada página
+    if page.Name == "Player" then
+        CreateButton(pageFrame, "WalkSpeed Boost", function()
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = 50
+        end)
+        CreateSlider(pageFrame, "WalkSpeed", 16, 100, 16, function(value)
+            game.Players.LocalPlayer.Character.Humanoid.WalkSpeed = value
+        end)
+        CreateSlider(pageFrame, "JumpPower", 50, 200, 50, function(value)
+            game.Players.LocalPlayer.Character.Humanoid.JumpPower = value
+        end)
+        CreateToggle(pageFrame, "Infinite Jump", false, function(state)
+            print("Infinite Jump:", state)
+        end)
+        
+    elseif page.Name == "Esp" then
+        CreateToggle(pageFrame, "Players ESP", false, function(state)
+            print("Players ESP:", state)
+        end)
+        CreateToggle(pageFrame, "LuckyBlock ESP", false, function(state)
+            print("LuckyBlock ESP:", state)
+        end)
+        CreateToggle(pageFrame, "Console ESP (Arcade)", false, function(state)
+            print("Console ESP:", state)
+        end)
+        CreateToggle(pageFrame, "Ticket ESP (Arcade)", false, function(state)
+            print("Ticket ESP:", state)
+        end)
+        CreateToggle(pageFrame, "Gold ESP (Money Event)", false, function(state)
+            print("Gold ESP:", state)
+        end)
+        CreateToggle(pageFrame, "Brainrot ESP", false, function(state)
+            print("Brainrot ESP:", state)
+        end)
+        
+    elseif page.Name == "Misc" then
+        CreateButton(pageFrame, "SafeZone", TeleportToSafeZone)
+        CreateButton(pageFrame, "Remove Fog", function()
+            game.Lighting.FogEnd = 100000
+        end)
+        CreateButton(pageFrame, "FullBright", function()
+            game.Lighting.Brightness = 2
+            game.Lighting.ClockTime = 14
+            game.Lighting.GlobalShadows = false
+        end)
+        CreateToggle(pageFrame, "No Clip", false, function(state)
+            print("No Clip:", state)
+        end)
+        
+    elseif page.Name == "Events" then
+        CreateButton(pageFrame, "Event 1", function()
+            print("Event 1 activated")
+        end)
+        CreateButton(pageFrame, "Event 2", function()
+            print("Event 2 activated")
+        end)
+        CreateButton(pageFrame, "Event 3", function()
+            print("Event 3 activated")
+        end)
+        
+    elseif page.Name == "Settings" then
+        CreateSlider(pageFrame, "UI Scale", 50, 150, 100, function(value)
+            local scale = value / 100
+            BorderContainer.Size = UDim2.new(0, (500 + Config.BorderWidth * 2) * scale, 0, (320 + Config.BorderWidth * 2) * scale)
+        end)
+        CreateToggle(pageFrame, "Rainbow Border", true, function(state)
+            BorderContainer.Visible = state
+            if not state then
+                BorderContainer.Visible = true
+                BorderContainer.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            end
+        end)
+        CreateButton(pageFrame, "Reset UI Position", function()
+            BorderContainer.Position = UDim2.new(0.5, -250 - Config.BorderWidth, 0.5, -160 - Config.BorderWidth)
+        end)
+    end
+    
+    -- Evento de clique no tab
+    tabButton.MouseButton1Click:Connect(function()
+        if CurrentPage ~= page.Name then
+            -- Animação de saída
+            local oldPage = PageFrames[CurrentPage]
+            TweenService:Create(oldPage, TweenInfo.new(Config.AnimationSpeed), {
+                Position = UDim2.new(-1, 0, 0, 5)
+            }):Play()
+            
+            wait(Config.AnimationSpeed)
+            oldPage.Visible = false
+            oldPage.Position = UDim2.new(0, 5, 0, 5)
+            
+            -- Atualizar página atual
+            CurrentPage = page.Name
+            
+            -- Animação de entrada
+            local newPage = PageFrames[CurrentPage]
+            newPage.Position = UDim2.new(1, 0, 0, 5)
+            newPage.Visible = true
+            TweenService:Create(newPage, TweenInfo.new(Config.AnimationSpeed), {
+                Position = UDim2.new(0, 5, 0, 5)
+            }):Play()
+            
+            -- Atualizar cores dos botões
+            for _, btn in pairs(TabContainer:GetChildren()) do
+                if btn:IsA("TextButton") then
+                    TweenService:Create(btn, TweenInfo.new(0.2), {
+                        BackgroundColor3 = Config.MainColor
+                    }):Play()
+                end
+            end
+            TweenService:Create(tabButton, TweenInfo.new(0.2), {
+                BackgroundColor3 = Config.AccentColor
+            }):Play()
+        end
+    end)
+end
+
+-- Mostrar primeira página
+PageFrames["Player"].Visible = true
+TabContainer:GetChildren()[2].BackgroundColor3 = Config.AccentColor
+
+-- Frame Minimizado
+local MinimizedFrame = CreateRoundedFrame(ScreenGui, "MinimizedFrame",
+    UDim2.new(0, 150, 0, 40),
+    UDim2.new(0.5, -75, 0, 20),
+    Config.MainColor
+)
+MinimizedFrame.Visible = false
+
+local MinimizedBorder = Instance.new("Frame")
+MinimizedBorder.Name = "MinimizedBorder"
+MinimizedBorder.Size = UDim2.new(1, Config.BorderWidth * 2, 1, Config.BorderWidth * 2)
+MinimizedBorder.Position = UDim2.new(0, -Config.BorderWidth, 0, -Config.BorderWidth)
+MinimizedBorder.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+MinimizedBorder.BorderSizePixel = 0
+MinimizedBorder.ZIndex = 0
+MinimizedBorder.Parent = MinimizedFrame
+
+local MinimizedCorner = Instance.new("UICorner")
+MinimizedCorner.CornerRadius = UDim.new(0, Config.CornerRadius + Config.BorderWidth)
+MinimizedCorner.Parent = MinimizedBorder
+
+RunService.RenderStepped:Connect(function()
+    MinimizedBorder.BackgroundColor3 = BorderContainer.BackgroundColor3
+end)
+
+local MinimizedButton = Instance.new("TextButton")
+MinimizedButton.Size = UDim2.new(1, 0, 1, 0)
+MinimizedButton.BackgroundTransparency = 1
+MinimizedButton.Text = "Anxiie Hub"
+MinimizedButton.TextColor3 = Config.TextColor
+MinimizedButton.TextSize = 16
+MinimizedButton.Font = Enum.Font.GothamBold
+MinimizedButton.Parent = MinimizedFrame
+
+-- Sistema de Minimizar/Maximizar
+local isMinimized = false
+
+local function ToggleUI()
+    isMinimized = not isMinimized
+    
+    if isMinimized then
+        -- Minimizar
+        ToggleButton.Text = "+"
+        TweenService:Create(BorderContainer, TweenInfo.new(Config.AnimationSpeed, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 0, 0, 0),
+            Position = UDim2.new(0.5, 0, 0.5, 0)
+        }):Play()
+        
+        wait(Config.AnimationSpeed)
+        BorderContainer.Visible = false
+        MinimizedFrame.Visible = true
+        MinimizedFrame.Size = UDim2.new(0, 0, 0, 0)
+        TweenService:Create(MinimizedFrame, TweenInfo.new(Config.AnimationSpeed, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 150, 0, 40)
+        }):Play()
+    else
+        -- Maximizar
+        ToggleButton.Text = "─"
+        TweenService:Create(MinimizedFrame, TweenInfo.new(Config.AnimationSpeed, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 0, 0, 0)
+        }):Play()
+        
+        wait(Config.AnimationSpeed)
+        MinimizedFrame.Visible = false
+        BorderContainer.Visible = true
+        BorderContainer.Size = UDim2.new(0, 0, 0, 0)
+        BorderContainer.Position = UDim2.new(0.5, 0, 0.5, 0)
+        TweenService:Create(BorderContainer, TweenInfo.new(Config.AnimationSpeed, Enum.EasingStyle.Back), {
+            Size = UDim2.new(0, 500 + (Config.BorderWidth * 2), 0, 320 + (Config.BorderWidth * 2)),
+            Position = UDim2.new(0.5, -250 - Config.BorderWidth, 0.5, -160 - Config.BorderWidth)
+        }):Play()
+    end
+end
+
+ToggleButton.MouseButton1Click:Connect(ToggleUI)
+MinimizedButton.MouseButton1Click:Connect(ToggleUI)
+
+-- Responsividade Mobile
+local function UpdateForMobile()
+    if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+        BorderContainer.Size = UDim2.new(0, 450 + (Config.BorderWidth * 2), 0, 350 + (Config.BorderWidth * 2))
+        BorderContainer.Position = UDim2.new(0.5, -225 - Config.BorderWidth, 0.5, -175 - Config.BorderWidth)
+    end
+end
+
+UpdateForMobile()
+
+print("Anxiie Hub loaded successfully!")
