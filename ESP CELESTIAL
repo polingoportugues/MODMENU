@@ -1,14 +1,20 @@
--- ESP CELESTIAL Lucky Blocks
+-- ESP CELESTIAL Lucky Blocks com Linha Laser
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
 
 local CONFIG = {
-    MaxDistance = 1000,
+    MaxDistance = 10000,
     TextSize = 16,
     TextStrokeTransparency = 0.5,
     RarityName = "Celestial",
     RarityColor = Color3.fromRGB(0, 255, 255),
+    -- Configurações da linha laser
+    LineEnabled = true,
+    LineColor = Color3.fromRGB(0, 255, 255),
+    LineThickness = 0.05,
+    LineTransparency = 0.3,
 }
 
 local IGNORE_NAMES = {
@@ -18,6 +24,7 @@ local IGNORE_NAMES = {
 }
 
 local billboards = {}
+local lines = {}
 
 local function isValidLuckyBlock(obj)
     local name = obj.Name
@@ -36,9 +43,81 @@ local function isValidLuckyBlock(obj)
     return true
 end
 
+local function createLine(part)
+    if lines[part] then
+        lines[part].beam:Destroy()
+        lines[part].attachment0:Destroy()
+        lines[part].attachment1:Destroy()
+        lines[part] = nil
+    end
+
+    local linesFolder = workspace:FindFirstChild("ESP_Lines_Celestial") or Instance.new("Folder", workspace)
+    linesFolder.Name = "ESP_Lines_Celestial"
+
+    local attachment0 = Instance.new("Attachment")
+    attachment0.Name = "LineStart"
+    attachment0.Parent = Camera
+
+    local attachment1 = Instance.new("Attachment")
+    attachment1.Name = "LineEnd"
+    attachment1.Parent = part
+
+    local beam = Instance.new("Beam")
+    beam.Name = "ESP_Line_Celestial"
+    beam.Attachment0 = attachment0
+    beam.Attachment1 = attachment1
+    beam.Color = ColorSequence.new(CONFIG.LineColor)
+    beam.Width0 = CONFIG.LineThickness
+    beam.Width1 = CONFIG.LineThickness
+    beam.Transparency = NumberSequence.new(CONFIG.LineTransparency)
+    beam.FaceCamera = true
+    beam.LightEmission = 0.8
+    beam.LightInfluence = 0
+    beam.Segments = 1
+    beam.Parent = linesFolder
+
+    lines[part] = {
+        beam = beam,
+        attachment0 = attachment0,
+        attachment1 = attachment1,
+    }
+end
+
+local function updateLine(part)
+    if not CONFIG.LineEnabled then
+        if lines[part] then
+            lines[part].beam.Enabled = false
+        end
+        return
+    end
+
+    if not lines[part] or not part:IsDescendantOf(workspace) then return end
+
+    local character = LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+    local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
+
+    if distance > CONFIG.MaxDistance then
+        lines[part].beam.Enabled = false
+    else
+        lines[part].beam.Enabled = true
+
+        -- Fixar origem no centro superior da tela (igual ao Secret)
+        local viewportSize = Camera.ViewportSize
+        local screenCenter = Vector2.new(viewportSize.X / 2, 0)
+
+        local ray = Camera:ViewportPointToRay(screenCenter.X, screenCenter.Y)
+        local startPosition = ray.Origin + ray.Direction * 5
+
+        lines[part].attachment0.WorldPosition = startPosition
+        lines[part].attachment1.WorldPosition = part.Position
+    end
+end
+
 local function createBillboard(part)
     if billboards[part] then billboards[part]:Destroy() end
-    
+
     local billboard = Instance.new("BillboardGui")
     billboard.Name = "ESP_Billboard"
     billboard.Adornee = part
@@ -46,7 +125,7 @@ local function createBillboard(part)
     billboard.StudsOffset = Vector3.new(0, 3, 0)
     billboard.AlwaysOnTop = true
     billboard.Parent = part
-    
+
     local nameLabel = Instance.new("TextLabel")
     nameLabel.Name = "NameLabel"
     nameLabel.Size = UDim2.new(1, 0, 0.5, 0)
@@ -58,7 +137,7 @@ local function createBillboard(part)
     nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     nameLabel.Font = Enum.Font.SourceSansBold
     nameLabel.Parent = billboard
-    
+
     local distanceLabel = Instance.new("TextLabel")
     distanceLabel.Name = "DistanceLabel"
     distanceLabel.Size = UDim2.new(1, 0, 0.5, 0)
@@ -71,18 +150,22 @@ local function createBillboard(part)
     distanceLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
     distanceLabel.Font = Enum.Font.SourceSans
     distanceLabel.Parent = billboard
-    
+
     billboards[part] = billboard
+
+    if CONFIG.LineEnabled then
+        createLine(part)
+    end
 end
 
 local function updateDistance(part)
     if not billboards[part] or not part:IsDescendantOf(workspace) then return end
-    
+
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-    
+
     local distance = (character.HumanoidRootPart.Position - part.Position).Magnitude
-    
+
     if distance > CONFIG.MaxDistance then
         billboards[part].Enabled = false
     else
@@ -130,16 +213,16 @@ end
 local function scanMap(map)
     local spawners = map:FindFirstChild("Spawners")
     if spawners then scanSpawnersInContainer(spawners) end
-    
+
     local og = map:FindFirstChild("OG")
     if og then scanSpawnersInContainer(og) end
-    
+
     local defaultStudioMap = map:FindFirstChild("DefaultStudioMap")
     if defaultStudioMap then
         local studioSpawners = defaultStudioMap:FindFirstChild("Spawners")
         if studioSpawners then scanSpawnersInContainer(studioSpawners) end
     end
-    
+
     for _, child in pairs(map:GetDescendants()) do
         if child.Name == "Spawners" and child:IsA("Folder") then
             scanSpawnersInContainer(child)
@@ -172,7 +255,25 @@ local function scanActiveLuckyBlocks()
     end
 end
 
-print("ESP CELESTIAL ativado!")
+-- Função para ligar/desligar linhas
+function toggleLines(enabled)
+    CONFIG.LineEnabled = enabled
+    if not enabled then
+        for part, lineData in pairs(lines) do
+            lineData.beam.Enabled = false
+        end
+    end
+end
+
+-- Função para mudar cor das linhas
+function setLineColor(color)
+    CONFIG.LineColor = color
+    for part, lineData in pairs(lines) do
+        lineData.beam.Color = ColorSequence.new(color)
+    end
+end
+
+print("ESP CELESTIAL com Linha Laser ativado!")
 scanActiveLuckyBlocks()
 scanAllMaps()
 
@@ -180,9 +281,17 @@ RunService.RenderStepped:Connect(function()
     for part, billboard in pairs(billboards) do
         if part and part:IsDescendantOf(workspace) then
             updateDistance(part)
+            updateLine(part)
         else
             billboard:Destroy()
             billboards[part] = nil
+
+            if lines[part] then
+                lines[part].beam:Destroy()
+                lines[part].attachment0:Destroy()
+                lines[part].attachment1:Destroy()
+                lines[part] = nil
+            end
         end
     end
 end)
