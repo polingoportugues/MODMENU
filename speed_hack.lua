@@ -20,8 +20,8 @@ local rootPart = character:WaitForChild("HumanoidRootPart")
 -- ========================================
 
 _G.speedToggleAtivo = _G.speedToggleAtivo or false
-_G.speedMultiplier = _G.speedMultiplier or 1
-_G.velocidadeBaseDetectada = 16
+_G.speedMultiplier = _G.speedMultiplier or 10
+_G.velocidadeBaseDetectada = 160
 
 -- ========================================
 -- CONFIGURAÇÃO
@@ -30,14 +30,14 @@ _G.velocidadeBaseDetectada = 16
 local speedAtivo = false
 local conexaoSpeed = nil
 local conexaoVelocity = nil
-local velocidadeOriginal = 16
+local velocidadeOriginal = 160
 
 -- Detectar velocidade original do personagem
 local function detectarVelocidadeOriginal()
     if humanoid then
         velocidadeOriginal = humanoid.WalkSpeed
-        if velocidadeOriginal > 100 then
-            velocidadeOriginal = 16 -- Resetar se já estiver modificado
+        if velocidadeOriginal > 1000 then
+            velocidadeOriginal = 160 -- Resetar se já estiver modificado
         end
         print("🔍 Velocidade original detectada:", velocidadeOriginal)
         _G.velocidadeBaseDetectada = velocidadeOriginal
