@@ -1,0 +1,120 @@
+-- Script Universal: Varredura Total do Workspace (Com Proteção de Gaps)
+print("🔄 Iniciando Super Varredura Universal...")
+
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+
+local allBottoms = {}
+
+-- =======================================================
+-- FUNÇÃO DE SEGURANÇA: Verifica se o objeto pertence aos Gaps protegidos
+-- =======================================================
+local function isProtected(obj)
+    -- Verifica se o objeto é ou está dentro de Workspace.DefaultMap.Gaps
+    local defaultMap = Workspace:FindFirstChild("DefaultMap")
+    if defaultMap then
+        local gaps = defaultMap:FindFirstChild("Gaps")
+        if gaps and (obj == gaps or obj:IsDescendantOf(gaps)) then
+            return true
+        end
+    end
+    return false
+end
+
+-- =======================================================
+-- FUNÇÃO DE LIMPEZA GERAL (VIP, MUD, GRASS)
+-- =======================================================
+local function universalCleanup()
+    print("🧹 Buscando VIP, Mud e Grass (Ignorando Gaps protegidos)...")
+    local countVIP = 0
+    local countDebris = 0
+    
+    for _, obj in ipairs(Workspace:GetDescendants()) do
+        -- PULA a remoção se estiver dentro de DefaultMap.Gaps
+        if isProtected(obj) then continue end
+
+        -- 1. Remove qualquer coisa que tenha VIP no nome
+        if (obj:IsA("Folder") or obj:IsA("Model")) and obj.Name:lower():find("vip") then
+            obj:Destroy()
+            countVIP += 1
+        
+        -- 2. Remove Mud e Grass
+        elseif obj:IsA("BasePart") and (obj.Name == "Mud" or obj.Name == "Grass") then
+            obj:Destroy()
+            countDebris += 1
+        end
+    end
+    print("✅ VIPs removidos: " .. countVIP)
+    print("✅ Mud/Grass removidos: " .. countDebris)
+end
+
+-- =======================================================
+-- FUNÇÃO UNIVERSAL PARA RIGHTWALLS E BOTTOMS
+-- =======================================================
+local function processAllRightWalls()
+    print("🏗️ Localizando todas as pastas 'RightWalls'...")
+    
+    local wallsRemoved = 0
+    local bottomsAdjusted = 0
+
+    for _, folder in ipairs(Workspace:GetDescendants()) do
+        -- Proteção: Não mexe em RightWalls se estiverem dentro dos Gaps do mapa
+        if isProtected(folder) then continue end
+
+        if folder:IsA("Folder") and folder.Name == "RightWalls" then
+            for _, item in ipairs(folder:GetDescendants()) do
+                if item:IsA("BasePart") then
+                    if item.Name == "Bottom" then
+                        -- AJUSTE DO TAMANHO Z PARA 1000
+                        local s = item.Size
+                        item.Size = Vector3.new(s.X, s.Y, 1000)
+                        
+                        table.insert(allBottoms, item)
+                        bottomsAdjusted += 1
+                    else
+                        -- DELETA outras peças (se não for Bottom e não estiver protegido)
+                        item:Destroy()
+                        wallsRemoved += 1
+                    end
+                end
+            end
+        end
+    end
+    print("✅ Paredes deletadas: " .. wallsRemoved)
+    print("📏 Bottoms ajustados: " .. bottomsAdjusted)
+end
+
+-- =======================================================
+-- EFEITO RGB RAINBOW
+-- =======================================================
+local function startRainbowEffect()
+    if #allBottoms == 0 then 
+        warn("⚠️ Nenhum Bottom encontrado para RGB.")
+        return 
+    end
+    
+    local hue = 0
+    RunService.Heartbeat:Connect(function() -- Heartbeat é melhor para scripts de servidor/geral
+        hue = (hue + 3) % 360 
+        local color = Color3.fromHSV(hue / 360, 1, 1)
+        
+        for i = #allBottoms, 1, -1 do
+            local bottom = allBottoms[i]
+            if bottom and bottom.Parent then
+                bottom.Color = color
+                bottom.Material = Enum.Material.Neon
+                bottom.CanCollide = true
+            else
+                table.remove(allBottoms, i) -- Limpa a tabela se o objeto sumir
+            end
+        end
+    end)
+    print("🌈 Efeito RGB ativado.")
+end
+
+-- EXECUÇÃO
+universalCleanup()
+processAllRightWalls()
+startRainbowEffect()
+
+print("\n🎉 SCRIPT CONCLUÍDO (GAPS PRESERVADOS)!")
