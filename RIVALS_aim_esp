@@ -1,0 +1,999 @@
+-- ADVANCED AIMBOT WITH FOV - VERSÃO MOBILE + ESP
+-- Aimbot + FOV Circle + ESP Billboard + ESP Line Laser
+-- GUI compacta, responsiva, com botão minimizar
+-- Auto-ativo no FOV (mobile e PC), persiste após morte
+-- By ANXIIE
+
+print("🔄 Carregando Advanced Aimbot v2...")
+
+-- ========================================
+-- SERVICES
+-- ========================================
+local Players        = game:GetService("Players")
+local RunService     = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local Workspace      = game:GetService("Workspace")
+
+local LocalPlayer    = Players.LocalPlayer
+local Mouse          = LocalPlayer:GetMouse()
+local Camera         = Workspace.CurrentCamera
+
+-- ========================================
+-- CONFIGURAÇÕES
+-- ========================================
+local aimbotEnabled    = true
+local aimbotActive     = false
+local fovEnabled       = true
+local fovRadius        = 150
+local smoothness       = 0.2
+local targetPart       = "Head"
+local teamCheck        = true
+local visibilityCheck  = true
+local autoShoot        = false
+
+-- ESP
+local espEnabled       = true
+local espLineEnabled   = true
+local espLineColor     = Color3.fromRGB(255, 50, 50)
+local espLineThickness = 0.05
+
+-- Auto-ativo: ativa aimbot automaticamente quando inimigo entra no FOV
+local autoActivate     = true
+
+-- Mobile: aimbot ativo enquanto houver alvo no FOV (sem precisar segurar)
+local isMobile         = UserInputService.TouchEnabled and not UserInputService.MouseEnabled
+
+-- Controles PC
+local aimbotKey        = Enum.UserInputType.MouseButton2
+local holdToAim        = true
+
+-- Target
+local currentTarget    = nil
+local lockedTarget     = nil
+
+-- Connections (para limpar ao recriar)
+local connections      = {}
+local updateConnection = nil
+
+-- ESP storage
+local espBillboards    = {}   -- player -> BillboardGui
+local espLines         = {}   -- player -> { beam, att0, att1 }
+local espLinesFolder   = nil
+
+-- ========================================
+-- FOV CIRCLE (Drawing)
+-- ========================================
+local fovCircle = Drawing.new("Circle")
+fovCircle.Thickness    = 2
+fovCircle.NumSides     = 64
+fovCircle.Radius       = fovRadius
+fovCircle.Filled       = false
+fovCircle.Transparency = 1
+fovCircle.Color        = Color3.fromRGB(255, 255, 255)
+fovCircle.Visible      = true
+
+-- ========================================
+-- FUNÇÕES AUXILIARES
+-- ========================================
+
+local function isAlly(player)
+    if not teamCheck then return false end
+    if not LocalPlayer.Team then return false end
+    return player.Team == LocalPlayer.Team
+end
+
+local function isPlayerAlive(player)
+    if not player or player == LocalPlayer then return false end
+    local character = player.Character
+    if not character then return false end
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    local head     = character:FindFirstChild("Head")
+    return humanoid and humanoid.Health > 0 and head
+end
+
+local function getTargetPart(player)
+    if not player.Character then return nil end
+    return player.Character:FindFirstChild(targetPart)
+end
+
+local function worldToScreen(position)
+    local screenPoint, onScreen = Camera:WorldToViewportPoint(position)
+    return Vector2.new(screenPoint.X, screenPoint.Y), onScreen, screenPoint.Z
+end
+
+local function getScreenCenter()
+    local vs = Camera.ViewportSize
+    return Vector2.new(vs.X / 2, vs.Y / 2)
+end
+
+local function isVisible(part)
+    if not visibilityCheck then return true end
+    if not part then return false end
+    local character = LocalPlayer.Character
+    if not character then return false end
+    local head = character:FindFirstChild("Head")
+    if not head then return false end
+    local ray = Ray.new(head.Position, (part.Position - head.Position).Unit * 500)
+    local hit  = Workspace:FindPartOnRayWithIgnoreList(ray, {character, Camera})
+    return hit and hit:IsDescendantOf(part.Parent)
+end
+
+local function getDistanceScreen(part)
+    if not part then return math.huge end
+    local screenPos, onScreen = worldToScreen(part.Position)
+    if not onScreen then return math.huge end
+    return (screenPos - getScreenCenter()).Magnitude
+end
+
+local function isInFOV(part)
+    if not fovEnabled then return true end
+    if not part then return false end
+    return getDistanceScreen(part) <= fovRadius
+end
+
+local function getWorldDistance(part)
+    if not part then return math.huge end
+    local character = LocalPlayer.Character
+    if not character then return math.huge end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return math.huge end
+    return (hrp.Position - part.Position).Magnitude
+end
+
+-- ========================================
+-- ESP SYSTEM
+-- ========================================
+
+local function getESPLinesFolder()
+    if not espLinesFolder or not espLinesFolder.Parent then
+        espLinesFolder = Workspace:FindFirstChild("_ESP_Lines_Aimbot")
+            or Instance.new("Folder", Workspace)
+        espLinesFolder.Name = "_ESP_Lines_Aimbot"
+    end
+    return espLinesFolder
+end
+
+local function removeESPForPlayer(player)
+    -- Billboard
+    if espBillboards[player] then
+        pcall(function() espBillboards[player]:Destroy() end)
+        espBillboards[player] = nil
+    end
+    -- Line
+    if espLines[player] then
+        pcall(function()
+            espLines[player].beam:Destroy()
+            espLines[player].att0:Destroy()
+            espLines[player].att1:Destroy()
+        end)
+        espLines[player] = nil
+    end
+end
+
+local function createESPBillboard(player)
+    if not player.Character then return end
+    local head = player.Character:FindFirstChild("Head")
+    if not head then return end
+
+    -- Limpar billboard anterior
+    if espBillboards[player] then
+        pcall(function() espBillboards[player]:Destroy() end)
+    end
+
+    local bb = Instance.new("BillboardGui")
+    bb.Name             = "ESP_BB_" .. player.Name
+    bb.Adornee          = head
+    bb.Size             = UDim2.new(0, 120, 0, 48)
+    bb.StudsOffset      = Vector3.new(0, 2.5, 0)
+    bb.AlwaysOnTop      = true
+    bb.ResetOnSpawn     = false
+    bb.Parent           = head
+
+    -- Nome
+    local nameLabel = Instance.new("TextLabel")
+    nameLabel.Size                  = UDim2.new(1, 0, 0.42, 0)
+    nameLabel.BackgroundTransparency = 1
+    nameLabel.Text                  = player.Name
+    nameLabel.TextColor3            = Color3.fromRGB(255, 80, 80)
+    nameLabel.TextSize              = 13
+    nameLabel.TextStrokeTransparency = 0.4
+    nameLabel.TextStrokeColor3      = Color3.fromRGB(0, 0, 0)
+    nameLabel.Font                  = Enum.Font.GothamBold
+    nameLabel.TextScaled            = false
+    nameLabel.Parent                = bb
+
+    -- Distância
+    local distLabel = Instance.new("TextLabel")
+    distLabel.Size                   = UDim2.new(1, 0, 0.29, 0)
+    distLabel.Position               = UDim2.new(0, 0, 0.42, 0)
+    distLabel.BackgroundTransparency = 1
+    distLabel.Text                   = "0m"
+    distLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
+    distLabel.TextSize               = 11
+    distLabel.TextStrokeTransparency = 0.4
+    distLabel.TextStrokeColor3       = Color3.fromRGB(0, 0, 0)
+    distLabel.Font                   = Enum.Font.Gotham
+    distLabel.Name                   = "DistLabel"
+    distLabel.Parent                 = bb
+
+    -- Saúde
+    local hpLabel = Instance.new("TextLabel")
+    hpLabel.Size                    = UDim2.new(1, 0, 0.29, 0)
+    hpLabel.Position                = UDim2.new(0, 0, 0.71, 0)
+    hpLabel.BackgroundTransparency  = 1
+    hpLabel.Text                    = "❤️ 100"
+    hpLabel.TextColor3              = Color3.fromRGB(100, 255, 100)
+    hpLabel.TextSize                = 11
+    hpLabel.TextStrokeTransparency  = 0.4
+    hpLabel.TextStrokeColor3        = Color3.fromRGB(0, 0, 0)
+    hpLabel.Font                    = Enum.Font.Gotham
+    hpLabel.Name                    = "HPLabel"
+    hpLabel.Parent                  = bb
+
+    espBillboards[player] = bb
+end
+
+local function createESPLine(player)
+    if not player.Character then return end
+    local head = player.Character:FindFirstChild("Head")
+    if not head then return end
+
+    -- Limpar linha anterior
+    if espLines[player] then
+        pcall(function()
+            espLines[player].beam:Destroy()
+            espLines[player].att0:Destroy()
+            espLines[player].att1:Destroy()
+        end)
+    end
+
+    local folder = getESPLinesFolder()
+
+    local att0 = Instance.new("Attachment")
+    att0.Name   = "LineStart_" .. player.Name
+    att0.Parent = Camera
+
+    local att1 = Instance.new("Attachment")
+    att1.Name   = "LineEnd_" .. player.Name
+    att1.Parent = head
+
+    local beam = Instance.new("Beam")
+    beam.Name         = "ESPLine_" .. player.Name
+    beam.Attachment0  = att0
+    beam.Attachment1  = att1
+    beam.Color        = ColorSequence.new(espLineColor)
+    beam.Width0       = espLineThickness
+    beam.Width1       = espLineThickness
+    beam.Transparency = NumberSequence.new(0.3)
+    beam.FaceCamera   = true
+    beam.LightEmission = 0.8
+    beam.LightInfluence = 0
+    beam.Segments     = 1
+    beam.Parent       = folder
+
+    espLines[player] = { beam = beam, att0 = att0, att1 = att1 }
+end
+
+local function setupESPForPlayer(player)
+    if not espEnabled then return end
+    if player == LocalPlayer then return end
+    if isAlly(player) then return end
+    createESPBillboard(player)
+    if espLineEnabled then
+        createESPLine(player)
+    end
+end
+
+local function updateESP()
+    if not espEnabled then
+        for player, _ in pairs(espBillboards) do
+            removeESPForPlayer(player)
+        end
+        return
+    end
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not isAlly(player) then
+            if isPlayerAlive(player) then
+                local head = player.Character and player.Character:FindFirstChild("Head")
+
+                -- Criar billboard se não existe ou perdeu parent
+                if not espBillboards[player] or not espBillboards[player].Parent then
+                    createESPBillboard(player)
+                end
+                -- Criar linha se não existe ou perdeu parent
+                if espLineEnabled and (not espLines[player] or not espLines[player].beam.Parent) then
+                    createESPLine(player)
+                end
+
+                -- Atualizar valores do billboard
+                local bb = espBillboards[player]
+                if bb and head then
+                    local dist = math.floor(getWorldDistance(head))
+                    local distL = bb:FindFirstChild("DistLabel")
+                    if distL then distL.Text = dist .. "m" end
+
+                    local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
+                    local hpL = bb:FindFirstChild("HPLabel")
+                    if hpL and humanoid then
+                        local hp = math.floor(humanoid.Health)
+                        local maxHp = math.floor(humanoid.MaxHealth)
+                        local ratio = hp / math.max(maxHp, 1)
+                        -- Cor: verde → amarelo → vermelho
+                        local r = math.floor(math.clamp((1 - ratio) * 2, 0, 1) * 255)
+                        local g = math.floor(math.clamp(ratio * 2, 0, 1) * 255)
+                        hpL.TextColor3 = Color3.fromRGB(r, g, 50)
+                        hpL.Text = "❤️ " .. hp .. "/" .. maxHp
+                    end
+                end
+
+                -- Atualizar linha laser: origem = centro superior da tela
+                if espLineEnabled and espLines[player] then
+                    local lineData = espLines[player]
+                    local vs = Camera.ViewportSize
+                    local ray = Camera:ViewportPointToRay(vs.X / 2, 0)
+                    lineData.att0.WorldPosition = ray.Origin + ray.Direction * 5
+                    if head then
+                        lineData.att1.WorldPosition = head.Position
+                    end
+                    lineData.beam.Enabled = true
+                end
+            else
+                -- Morto ou saiu: remover ESP
+                removeESPForPlayer(player)
+            end
+        end
+    end
+
+    -- Limpar ESPs de jogadores que saíram
+    for player, _ in pairs(espBillboards) do
+        if not player.Parent or not player.Character then
+            removeESPForPlayer(player)
+        end
+    end
+end
+
+-- Escutar jogadores que entram
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        task.wait(1)
+        setupESPForPlayer(player)
+    end)
+end)
+
+-- Setup ESP para quem já está na partida
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= LocalPlayer then
+        if player.Character then
+            setupESPForPlayer(player)
+        end
+        player.CharacterAdded:Connect(function()
+            task.wait(1)
+            setupESPForPlayer(player)
+        end)
+    end
+end
+
+Players.PlayerRemoving:Connect(function(player)
+    removeESPForPlayer(player)
+end)
+
+-- ========================================
+-- AIMBOT CORE
+-- ========================================
+
+local function aimAt(part)
+    if not part then return end
+    local targetPos = part.Position
+
+    -- 1. Câmera
+    local currentCFrame = Camera.CFrame
+    local targetCFrame  = CFrame.new(Camera.CFrame.Position, targetPos)
+    Camera.CFrame       = currentCFrame:Lerp(targetCFrame, smoothness)
+
+    -- 2. Mouse (braço/arma segue a mira)
+    local screenPos, onScreen = Camera:WorldToViewportPoint(targetPos)
+    if onScreen then
+        local mousePos = UserInputService:GetMouseLocation()
+        local delta    = Vector2.new(screenPos.X, screenPos.Y) - mousePos
+        mousemoverel(delta.X * smoothness, delta.Y * smoothness)
+    end
+
+    -- 3. Rotação YAW do personagem
+    local character = LocalPlayer.Character
+    if character then
+        local hrp = character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local lookDir = Vector3.new(
+                targetPos.X - hrp.Position.X,
+                0,
+                targetPos.Z - hrp.Position.Z
+            )
+            if lookDir.Magnitude > 0.01 then
+                local targetRot = CFrame.new(hrp.Position, hrp.Position + lookDir)
+                hrp.CFrame = hrp.CFrame:Lerp(targetRot, smoothness)
+            end
+        end
+    end
+end
+
+local function findBestTarget()
+    local bestTarget = nil
+    local shortest   = math.huge
+    for _, player in ipairs(Players:GetPlayers()) do
+        if isPlayerAlive(player) and not isAlly(player) then
+            local part = getTargetPart(player)
+            if part then
+                local dist = getDistanceScreen(part)
+                if isInFOV(part) and isVisible(part) and dist < shortest then
+                    shortest   = dist
+                    bestTarget = player
+                end
+            end
+        end
+    end
+    return bestTarget
+end
+
+local function updateAimbot()
+    if not aimbotEnabled then
+        currentTarget = nil
+        return
+    end
+
+    -- AUTO-ACTIVATE: se inimigo no FOV, ativa automaticamente
+    if autoActivate then
+        local anyInFOV = findBestTarget()
+        if anyInFOV then
+            aimbotActive = true
+        else
+            -- Só desativa auto se não estiver segurando botão manualmente
+            if not UserInputService:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+                aimbotActive = false
+                currentTarget = nil
+                lockedTarget  = nil
+                return
+            end
+        end
+    end
+
+    if not aimbotActive then
+        currentTarget = nil
+        return
+    end
+
+    -- Manter lock ou achar novo
+    if lockedTarget and isPlayerAlive(lockedTarget) then
+        local part = getTargetPart(lockedTarget)
+        if part and isInFOV(part) and isVisible(part) then
+            currentTarget = lockedTarget
+        else
+            lockedTarget  = nil
+            currentTarget = findBestTarget()
+        end
+    else
+        currentTarget = findBestTarget()
+        if currentTarget then lockedTarget = currentTarget end
+    end
+
+    -- Aplicar
+    if currentTarget then
+        local part = getTargetPart(currentTarget)
+        if part then
+            aimAt(part)
+            if autoShoot then
+                mouse1press()
+                task.wait(0.01)
+                mouse1release()
+            end
+        end
+    end
+end
+
+-- ========================================
+-- PERSIST APÓS MORTE: recriar conexões
+-- ========================================
+local function setupCharacterConnections(character)
+    -- Re-attach ESP ao respawnar
+    task.wait(0.5)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and not isAlly(player) then
+            if player.Character then setupESPForPlayer(player) end
+        end
+    end
+end
+
+LocalPlayer.CharacterAdded:Connect(function(character)
+    -- Limpar lock ao morrer
+    lockedTarget  = nil
+    currentTarget = nil
+    aimbotActive  = false
+    -- Recriar ESP lines (att0 estava no Camera, não muda; mas garantir)
+    setupCharacterConnections(character)
+end)
+
+-- ========================================
+-- GUI COMPACTA E RESPONSIVA
+-- ========================================
+
+-- Tamanho base responsivo
+local screenSize = Camera.ViewportSize
+local IS_MOBILE  = isMobile or screenSize.X < 800
+local GUI_W      = IS_MOBILE and math.min(280, screenSize.X - 20) or 300
+local GUI_H      = IS_MOBILE and 380 or 420
+local BTN_H      = IS_MOBILE and 38 or 34
+local TXT_SZ     = IS_MOBILE and 13 or 12
+
+local function buildGUI()
+    if LocalPlayer.PlayerGui:FindFirstChild("AimbotGUI") then
+        LocalPlayer.PlayerGui.AimbotGUI:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name           = "AimbotGUI"
+    gui.ResetOnSpawn   = false
+    gui.IgnoreGuiInset = true
+    gui.DisplayOrder   = 999
+    gui.Parent         = LocalPlayer.PlayerGui
+
+    -- ── MINIMIZED BUTTON ──────────────────────────────────────────
+    local minBtn = Instance.new("TextButton")
+    minBtn.Name            = "MinBtn"
+    minBtn.Size            = UDim2.new(0, 90, 0, 32)
+    minBtn.Position        = UDim2.new(0, 10, 0, 10)
+    minBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    minBtn.BorderSizePixel = 0
+    minBtn.Font            = Enum.Font.GothamBold
+    minBtn.Text            = "🎯 AIMBOT"
+    minBtn.TextColor3      = Color3.fromRGB(255, 80, 80)
+    minBtn.TextSize        = 11
+    minBtn.Visible         = false
+    minBtn.AutoButtonColor = false
+    minBtn.Parent          = gui
+
+    local minBtnCorner = Instance.new("UICorner")
+    minBtnCorner.CornerRadius = UDim.new(0, 8)
+    minBtnCorner.Parent = minBtn
+
+    local minBtnStroke = Instance.new("UIStroke")
+    minBtnStroke.Color     = Color3.fromRGB(255, 50, 50)
+    minBtnStroke.Thickness = 1.5
+    minBtnStroke.Parent    = minBtn
+
+    -- ── MAIN FRAME ────────────────────────────────────────────────
+    local main = Instance.new("Frame")
+    main.Name              = "Main"
+    main.Size              = UDim2.new(0, GUI_W, 0, GUI_H)
+    main.Position          = IS_MOBILE
+        and UDim2.new(0, 10, 0, 50)
+        or  UDim2.new(1, -(GUI_W + 10), 0, 50)
+    main.BackgroundColor3  = Color3.fromRGB(18, 18, 18)
+    main.BorderSizePixel   = 0
+    main.Active            = true
+    main.Draggable         = true
+    main.Parent            = gui
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 10)
+    mainCorner.Parent = main
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color     = Color3.fromRGB(255, 50, 50)
+    mainStroke.Thickness = 1.5
+    mainStroke.Parent    = main
+
+    -- ── HEADER ────────────────────────────────────────────────────
+    local header = Instance.new("Frame")
+    header.Size            = UDim2.new(1, 0, 0, 38)
+    header.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    header.BorderSizePixel = 0
+    header.Parent          = main
+
+    local headerCorner = Instance.new("UICorner")
+    headerCorner.CornerRadius = UDim.new(0, 10)
+    headerCorner.Parent = header
+
+    -- Fix para cantos inferiores do header ficarem retos
+    local headerFix = Instance.new("Frame")
+    headerFix.Size            = UDim2.new(1, 0, 0, 10)
+    headerFix.Position        = UDim2.new(0, 0, 1, -10)
+    headerFix.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+    headerFix.BorderSizePixel = 0
+    headerFix.Parent          = header
+
+    local titleL = Instance.new("TextLabel")
+    titleL.Size               = UDim2.new(1, -80, 1, 0)
+    titleL.Position           = UDim2.new(0, 10, 0, 0)
+    titleL.BackgroundTransparency = 1
+    titleL.Font               = Enum.Font.GothamBold
+    titleL.Text               = "🎯 AIMBOT + ESP"
+    titleL.TextColor3         = Color3.fromRGB(255, 80, 80)
+    titleL.TextSize           = 14
+    titleL.TextXAlignment     = Enum.TextXAlignment.Left
+    titleL.Parent             = header
+
+    -- Botão minimizar (─)
+    local minimizeBtn = Instance.new("TextButton")
+    minimizeBtn.Size            = UDim2.new(0, 28, 0, 26)
+    minimizeBtn.Position        = UDim2.new(1, -34, 0, 6)
+    minimizeBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    minimizeBtn.BorderSizePixel = 0
+    minimizeBtn.Font            = Enum.Font.GothamBold
+    minimizeBtn.Text            = "─"
+    minimizeBtn.TextColor3      = Color3.fromRGB(255, 255, 255)
+    minimizeBtn.TextSize        = 16
+    minimizeBtn.AutoButtonColor = false
+    minimizeBtn.Parent          = header
+
+    local minimizeBtnCorner = Instance.new("UICorner")
+    minimizeBtnCorner.CornerRadius = UDim.new(0, 6)
+    minimizeBtnCorner.Parent = minimizeBtn
+
+    -- ── STATUS BAR ────────────────────────────────────────────────
+    local statusBar = Instance.new("Frame")
+    statusBar.Size            = UDim2.new(1, -12, 0, 36)
+    statusBar.Position        = UDim2.new(0, 6, 0, 42)
+    statusBar.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    statusBar.BorderSizePixel = 0
+    statusBar.Parent          = main
+
+    local statusBarCorner = Instance.new("UICorner")
+    statusBarCorner.CornerRadius = UDim.new(0, 7)
+    statusBarCorner.Parent = statusBar
+
+    local statusText = Instance.new("TextLabel")
+    statusText.Name               = "StatusText"
+    statusText.Size               = UDim2.new(1, -8, 1, 0)
+    statusText.Position           = UDim2.new(0, 6, 0, 0)
+    statusText.BackgroundTransparency = 1
+    statusText.Font               = Enum.Font.GothamBold
+    statusText.Text               = "🔴 INATIVO  |  👤 Nenhum"
+    statusText.TextColor3         = Color3.fromRGB(200, 200, 200)
+    statusText.TextSize           = 11
+    statusText.TextXAlignment     = Enum.TextXAlignment.Left
+    statusText.Parent             = statusBar
+
+    -- ── SCROLL ────────────────────────────────────────────────────
+    local scroll = Instance.new("ScrollingFrame")
+    scroll.Size              = UDim2.new(1, -12, 1, -86)
+    scroll.Position          = UDim2.new(0, 6, 0, 82)
+    scroll.BackgroundTransparency = 1
+    scroll.BorderSizePixel   = 0
+    scroll.ScrollBarThickness = IS_MOBILE and 3 or 4
+    scroll.ScrollBarImageColor3 = Color3.fromRGB(255, 50, 50)
+    scroll.CanvasSize        = UDim2.new(0, 0, 0, 0)
+    scroll.Parent            = main
+
+    local layout = Instance.new("UIListLayout")
+    layout.Padding       = UDim.new(0, 5)
+    layout.SortOrder     = Enum.SortOrder.LayoutOrder
+    layout.Parent        = scroll
+
+    local scrollPad = Instance.new("UIPadding")
+    scrollPad.PaddingBottom = UDim.new(0, 6)
+    scrollPad.Parent = scroll
+
+    layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        scroll.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y + 10)
+    end)
+
+    -- ── MINIMIZAR LÓGICA ──────────────────────────────────────────
+    local isMinimized = false
+
+    minimizeBtn.MouseButton1Click:Connect(function()
+        isMinimized = true
+        main.Visible   = false
+        minBtn.Visible = true
+    end)
+
+    minBtn.MouseButton1Click:Connect(function()
+        isMinimized = false
+        main.Visible   = true
+        minBtn.Visible = false
+    end)
+
+    return scroll, statusText, layout
+end
+
+-- ── Funções de controles da GUI ────────────────────────────────
+
+local function makeSection(parent, text, order)
+    local f = Instance.new("Frame")
+    f.Size            = UDim2.new(1, 0, 0, 24)
+    f.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    f.BorderSizePixel = 0
+    f.LayoutOrder     = order
+    f.Parent          = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = f
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(1, -10, 1, 0)
+    lbl.Position           = UDim2.new(0, 8, 0, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Font               = Enum.Font.GothamBold
+    lbl.Text               = text
+    lbl.TextColor3         = Color3.fromRGB(255, 80, 80)
+    lbl.TextSize           = 11
+    lbl.TextXAlignment     = Enum.TextXAlignment.Left
+    lbl.Parent             = f
+    return f
+end
+
+local function makeToggle(parent, text, state, order, cb)
+    local btn = Instance.new("TextButton")
+    btn.Size            = UDim2.new(1, 0, 0, BTN_H)
+    btn.BackgroundColor3 = state and Color3.fromRGB(40, 130, 40) or Color3.fromRGB(120, 40, 40)
+    btn.BorderSizePixel = 0
+    btn.Font            = Enum.Font.GothamBold
+    btn.Text            = (state and "✅ " or "❌ ") .. text
+    btn.TextColor3      = Color3.fromRGB(255, 255, 255)
+    btn.TextSize        = TXT_SZ
+    btn.AutoButtonColor = false
+    btn.LayoutOrder     = order
+    btn.Parent          = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 7)
+    c.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        state = not state
+        btn.BackgroundColor3 = state and Color3.fromRGB(40, 130, 40) or Color3.fromRGB(120, 40, 40)
+        btn.Text = (state and "✅ " or "❌ ") .. text
+        cb(state)
+    end)
+
+    return btn
+end
+
+local function makeSlider(parent, text, minV, maxV, defV, order, cb)
+    local container = Instance.new("Frame")
+    container.Size            = UDim2.new(1, 0, 0, 52)
+    container.BackgroundColor3 = Color3.fromRGB(28, 28, 28)
+    container.BorderSizePixel = 0
+    container.LayoutOrder     = order
+    container.Parent          = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 7)
+    c.Parent = container
+
+    local lbl = Instance.new("TextLabel")
+    lbl.Size               = UDim2.new(1, -10, 0, 22)
+    lbl.Position           = UDim2.new(0, 8, 0, 4)
+    lbl.BackgroundTransparency = 1
+    lbl.Font               = Enum.Font.GothamBold
+    lbl.Text               = text .. ": " .. defV
+    lbl.TextColor3         = Color3.fromRGB(210, 210, 210)
+    lbl.TextSize           = TXT_SZ
+    lbl.TextXAlignment     = Enum.TextXAlignment.Left
+    lbl.Parent             = container
+
+    local track = Instance.new("Frame")
+    track.Size            = UDim2.new(1, -16, 0, 14)
+    track.Position        = UDim2.new(0, 8, 0, 30)
+    track.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    track.BorderSizePixel = 0
+    track.Parent          = container
+
+    local tc = Instance.new("UICorner")
+    tc.CornerRadius = UDim.new(0, 5)
+    tc.Parent = track
+
+    local fill = Instance.new("Frame")
+    fill.Size            = UDim2.new((defV - minV) / (maxV - minV), 0, 1, 0)
+    fill.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    fill.BorderSizePixel = 0
+    fill.Parent          = track
+
+    local fc = Instance.new("UICorner")
+    fc.CornerRadius = UDim.new(0, 5)
+    fc.Parent = fill
+
+    local dragging = false
+
+    track.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(inp)
+        if not dragging then return end
+        if inp.UserInputType == Enum.UserInputType.MouseMovement
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            local mX     = UserInputService:GetMouseLocation().X
+            local rel    = math.clamp((mX - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+            local val    = math.floor(minV + (maxV - minV) * rel)
+            fill.Size    = UDim2.new(rel, 0, 1, 0)
+            lbl.Text     = text .. ": " .. val
+            cb(val)
+        end
+    end)
+
+    return container
+end
+
+local function makeTargetBtn(parent, partName, order, targetBtns)
+    local btn = Instance.new("TextButton")
+    btn.Size            = UDim2.new(0.48, 0, 0, BTN_H - 4)
+    btn.BackgroundColor3 = partName == targetPart and Color3.fromRGB(40, 130, 40) or Color3.fromRGB(45, 45, 45)
+    btn.BorderSizePixel = 0
+    btn.Font            = Enum.Font.GothamBold
+    btn.Text            = partName
+    btn.TextColor3      = Color3.fromRGB(255, 255, 255)
+    btn.TextSize        = TXT_SZ - 1
+    btn.AutoButtonColor = false
+    btn.LayoutOrder     = order
+    btn.Parent          = parent
+
+    local c = Instance.new("UICorner")
+    c.CornerRadius = UDim.new(0, 6)
+    c.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        targetPart = partName
+        for _, b in pairs(targetBtns) do
+            b.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        end
+        btn.BackgroundColor3 = Color3.fromRGB(40, 130, 40)
+        print("🎯 Target:", partName)
+    end)
+
+    table.insert(targetBtns, btn)
+    return btn
+end
+
+-- ── CONSTRUIR GUI ──────────────────────────────────────────────
+local scrollFrame, statusText = buildGUI()
+
+-- Seção: Aimbot
+makeSection(scrollFrame, "⚙️  AIMBOT", 1)
+makeToggle(scrollFrame, "Aimbot Ativo", true, 2, function(s)
+    aimbotEnabled = s
+    if not s then aimbotActive = false; currentTarget = nil end
+end)
+makeToggle(scrollFrame, "Auto-Lock no FOV", true, 3, function(s)
+    autoActivate = s
+end)
+makeToggle(scrollFrame, "FOV Circle Visível", true, 4, function(s)
+    fovEnabled = s
+    fovCircle.Visible = s
+end)
+makeToggle(scrollFrame, "Team Check", true, 5, function(s)
+    teamCheck = s
+end)
+makeToggle(scrollFrame, "Visibility Check", true, 6, function(s)
+    visibilityCheck = s
+end)
+makeToggle(scrollFrame, "Auto-Shoot", false, 7, function(s)
+    autoShoot = s
+end)
+
+makeSlider(scrollFrame, "FOV Radius", 50, 500, 150, 8, function(v)
+    fovRadius = v
+    fovCircle.Radius = v
+end)
+makeSlider(scrollFrame, "Smoothness", 1, 100, 20, 9, function(v)
+    smoothness = v / 100
+end)
+
+-- Seção: Target
+makeSection(scrollFrame, "🎯  ALVO", 10)
+
+-- Grid 2x2 para target parts
+local targetGrid = Instance.new("Frame")
+targetGrid.Size            = UDim2.new(1, 0, 0, (BTN_H - 4) * 2 + 5)
+targetGrid.BackgroundTransparency = 1
+targetGrid.LayoutOrder     = 11
+targetGrid.Parent          = scrollFrame
+
+local gridLayout = Instance.new("UIGridLayout")
+gridLayout.CellSize    = UDim2.new(0.48, 0, 0, BTN_H - 4)
+gridLayout.CellPadding = UDim2.new(0.04, 0, 0, 5)
+gridLayout.Parent      = targetGrid
+
+local targetBtns = {}
+for _, partName in ipairs({"Head", "HumanoidRootPart", "UpperTorso", "LowerTorso"}) do
+    makeTargetBtn(targetGrid, partName, 0, targetBtns)
+end
+
+-- Seção: ESP
+makeSection(scrollFrame, "👁️  ESP", 12)
+makeToggle(scrollFrame, "ESP Billboard", true, 13, function(s)
+    espEnabled = s
+    if not s then
+        for player, _ in pairs(espBillboards) do removeESPForPlayer(player) end
+    else
+        for _, player in ipairs(Players:GetPlayers()) do
+            if player ~= LocalPlayer and player.Character then
+                setupESPForPlayer(player)
+            end
+        end
+    end
+end)
+makeToggle(scrollFrame, "ESP Line Laser", true, 14, function(s)
+    espLineEnabled = s
+    if not s then
+        for player, lineData in pairs(espLines) do
+            if lineData and lineData.beam then lineData.beam.Enabled = false end
+        end
+    end
+end)
+
+-- ========================================
+-- INPUT HANDLING (PC)
+-- ========================================
+
+table.insert(connections, UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == aimbotKey then
+        if holdToAim then
+            aimbotActive = true
+        else
+            aimbotActive = not aimbotActive
+        end
+    end
+end))
+
+table.insert(connections, UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == aimbotKey and holdToAim then
+        -- Só desativa manual se autoActivate estiver off
+        if not autoActivate then
+            aimbotActive = false
+            lockedTarget = nil
+        end
+    end
+end))
+
+-- Mobile: autoActivate gerencia o aimbot, touch não precisa mais controlar
+
+-- ========================================
+-- UPDATE LOOP PRINCIPAL
+-- ========================================
+
+updateConnection = RunService.RenderStepped:Connect(function()
+    -- FOV Circle
+    local center = getScreenCenter()
+    fovCircle.Position = center
+    fovCircle.Radius   = fovRadius
+
+    if aimbotActive and currentTarget then
+        fovCircle.Color = Color3.fromRGB(255, 0, 0)
+    elseif aimbotActive then
+        fovCircle.Color = Color3.fromRGB(255, 200, 0)
+    else
+        fovCircle.Color = Color3.fromRGB(255, 255, 255)
+    end
+
+    -- Aimbot
+    updateAimbot()
+
+    -- ESP
+    updateESP()
+
+    -- Status
+    local targetName = currentTarget and currentTarget.Name or "Nenhum"
+    statusText.Text = (aimbotActive and "🟢 ATIVO" or "🔴 INATIVO")
+        .. "  |  👤 " .. targetName
+end)
+
+-- ========================================
+-- FINALIZAÇÃO
+-- ========================================
+print("✅ Aimbot v2 carregado!")
+print("   🎯 Auto-Lock no FOV: " .. tostring(autoActivate))
+print("   👁️  ESP Billboard + Line Laser ativos")
+print("   📱 Otimizado para Mobile")
+print("   ♻️  Persiste após morte")
