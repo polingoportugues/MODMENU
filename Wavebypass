@@ -1,0 +1,325 @@
+-- HITBOX DETECTOR COM AUTO FLY PARA CHECKPOINT MAIS PRÓXIMO (SEM MENSAGENS NA TELA)
+-- Coloque como LocalScript em StarterPlayerScripts
+
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+local player = Players.LocalPlayer
+local character
+local humanoidRootPart
+local humanoid
+
+-- ========================================
+-- CONFIGURAÇÃO
+-- ========================================
+
+local DETECTION_RADIUS = 200
+local CHECK_INTERVAL = 0.1
+
+-- 100 CHECKPOINTS (POSIÇÕES X)
+local CHECKPOINTS_X = {
+	163.11, 205.06, 247.01, 288.95, 330.90, 372.85, 414.80, 456.74, 498.69, 540.64,
+	582.59, 624.53, 666.48, 708.43, 750.38, 792.32, 834.27, 876.22, 918.17, 960.11,
+	1002.06, 1044.01, 1085.96, 1127.90, 1169.85, 1211.80, 1253.75, 1295.69, 1337.64, 1379.59,
+	1421.54, 1463.48, 1505.43, 1547.38, 1589.33, 1631.27, 1673.22, 1715.17, 1757.12, 1799.06,
+	1841.01, 1882.96, 1924.91, 1966.85, 2008.80, 2050.75, 2092.70, 2134.64, 2176.59, 2218.54,
+	2260.49, 2302.43, 2344.38, 2386.33, 2428.28, 2470.22, 2512.17, 2554.12, 2596.07, 2638.01,
+	2679.96, 2721.91, 2763.86, 2805.80, 2847.75, 2889.70, 2931.65, 2973.59, 3015.54, 3057.49,
+	3099.44, 3141.38, 3183.33, 3225.28, 3267.23, 3309.17, 3351.12, 3393.07, 3435.02, 3476.96,
+	3518.91, 3560.86, 3602.81, 3644.75, 3686.70, 3728.65, 3770.60, 3812.54, 3854.49, 3896.44,
+	3938.39, 3980.33, 4022.28, 4064.23, 4106.18, 4148.12, 4190.07, 4232.02, 4273.97, 4315.92
+}
+
+local SAFE_Y = 3.21
+local SAFE_Z = -139.51
+
+-- Controle global
+_G.hitboxDetectorAtivo = true
+local isFlying = false
+local flyConnection
+local isFleeing = false
+
+-- ========================================
+-- CRIAR CÍRCULO VISUAL
+-- ========================================
+
+local circlePart
+local circleFolder = Instance.new("Folder")
+circleFolder.Name = "HitboxDetectorCircle"
+circleFolder.Parent = Workspace
+
+local function createCircle()
+	if circlePart then
+		circlePart:Destroy()
+	end
+	
+	if not _G.hitboxDetectorAtivo then return end
+	if not humanoidRootPart then return end
+
+	circlePart = Instance.new("Part")
+	circlePart.Name = "DetectionCircle"
+	circlePart.Shape = Enum.PartType.Cylinder
+	circlePart.Anchored = true
+	circlePart.CanCollide = false
+	circlePart.Material = Enum.Material.Neon
+	circlePart.Color = Color3.fromRGB(0, 255, 255)
+	circlePart.Transparency = 1.0
+	circlePart.CastShadow = false
+	circlePart.Size = Vector3.new(0.5, DETECTION_RADIUS * 2, DETECTION_RADIUS * 2)
+	circlePart.Parent = circleFolder
+end
+
+local function updateCircle()
+	if not circlePart then return end
+	if not humanoidRootPart then return end
+	
+	circlePart.CFrame =
+		CFrame.new(humanoidRootPart.Position - Vector3.new(0, 2.5, 0)) *
+		CFrame.Angles(0, 0, math.rad(90))
+end
+
+-- ========================================
+-- SISTEMA DE VOO
+-- ========================================
+
+local bodyVelocity
+local bodyGyro
+
+local function enableFly()
+	if isFlying then return end
+	if not humanoidRootPart then return end
+	
+	isFlying = true
+	
+	bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.MaxForce = Vector3.new(9e9, 9e9, 9e9)
+	bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+	bodyVelocity.Parent = humanoidRootPart
+	
+	bodyGyro = Instance.new("BodyGyro")
+	bodyGyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+	bodyGyro.CFrame = humanoidRootPart.CFrame
+	bodyGyro.Parent = humanoidRootPart
+end
+
+local function disableFly()
+	if not isFlying then return end
+	
+	isFlying = false
+	
+	if bodyVelocity then
+		bodyVelocity:Destroy()
+		bodyVelocity = nil
+	end
+	
+	if bodyGyro then
+		bodyGyro:Destroy()
+		bodyGyro = nil
+	end
+	
+	if flyConnection then
+		flyConnection:Disconnect()
+		flyConnection = nil
+	end
+end
+
+-- ========================================
+-- CALCULAR CHECKPOINT MAIS PRÓXIMO DO PLAYER
+-- ========================================
+
+local function getClosestCheckpoint()
+	if not humanoidRootPart then return nil, nil end
+	
+	local currentX = humanoidRootPart.Position.X
+	local closestX = nil
+	local closestIndex = nil
+	local shortestDist = math.huge
+	
+	for index, checkpointX in ipairs(CHECKPOINTS_X) do
+		local dist = math.abs(checkpointX - currentX)
+		
+		if dist < shortestDist then
+			shortestDist = dist
+			closestX = checkpointX
+			closestIndex = index
+		end
+	end
+	
+	return Vector3.new(closestX, SAFE_Y, SAFE_Z), closestIndex
+end
+
+-- ========================================
+-- VOAR PARA CHECKPOINT MAIS PRÓXIMO
+-- ========================================
+
+local function flyToSafePosition()
+	if isFleeing then return end
+	if not humanoidRootPart then return end
+	
+	isFleeing = true
+	
+	local targetVector, checkpointIndex = getClosestCheckpoint()
+	if not targetVector then
+		isFleeing = false
+		return
+	end
+	
+	local currentX = humanoidRootPart.Position.X
+	
+	-- Chamada de popup removida visualmente
+	showPopup("Indo para Checkpoint")
+	
+	enableFly()
+	
+	local FLIGHT_SPEED = 350
+	local STOP_DISTANCE = 3
+	
+	flyConnection = RunService.Heartbeat:Connect(function()
+		if not humanoidRootPart or not isFlying then
+			if flyConnection then
+				flyConnection:Disconnect()
+			end
+			isFleeing = false
+			return
+		end
+		
+		local currentPos = humanoidRootPart.Position
+		local direction = (targetVector - currentPos)
+		local distance = direction.Magnitude
+		
+		if distance <= STOP_DISTANCE then
+			bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+			humanoidRootPart.CFrame = CFrame.new(targetVector)
+			
+			task.wait(0.5)
+			disableFly()
+			isFleeing = false
+			
+			if flyConnection then
+				flyConnection:Disconnect()
+				flyConnection = nil
+			end
+			return
+		end
+		
+		local velocity = direction.Unit * FLIGHT_SPEED
+		bodyVelocity.Velocity = velocity
+		bodyGyro.CFrame = CFrame.new(currentPos, currentPos + direction)
+	end)
+end
+
+-- ========================================
+-- FUNÇÃO DE POPUP (DESATIVADA)
+-- ========================================
+
+function showPopup(text)
+    -- A função agora existe apenas para não quebrar o script,
+    -- mas não cria nenhuma interface na tela.
+	return
+end
+
+-- ========================================
+-- DETECÇÃO
+-- ========================================
+
+local detected = {}
+local lastCheck = 0
+
+local function checkDetection()
+	if not humanoidRootPart then return end
+	
+	local myPos = humanoidRootPart.Position
+
+	-- Detectar players
+	for _, other in pairs(Players:GetPlayers()) do
+		if other ~= player and other.Character then
+			local root = other.Character:FindFirstChild("HumanoidRootPart")
+			if root then
+				local dist = (root.Position - myPos).Magnitude
+				
+				if dist <= DETECTION_RADIUS then
+					if not detected[other] then
+						detected[other] = true
+						-- Apenas detecta internamente, sem mostrar na tela
+					end
+				else
+					detected[other] = nil
+				end
+			end
+		end
+	end
+
+	-- Detectar tsunamis/waves
+	local active = Workspace:FindFirstChild("ActiveTsunamis")
+	if active then
+		for _, tsunami in pairs(active:GetChildren()) do
+			local hitbox = tsunami:FindFirstChild("Hitbox")
+			
+			if hitbox and hitbox:IsA("BasePart") then
+				local dist = (hitbox.Position - myPos).Magnitude
+				
+				if dist <= DETECTION_RADIUS then
+					if not detected[hitbox] then
+						detected[hitbox] = true
+						
+						if not isFleeing then
+							flyToSafePosition()
+						end
+					end
+				else
+					detected[hitbox] = nil
+				end
+			end
+		end
+	end
+end
+
+-- ========================================
+-- CHARACTER SETUP
+-- ========================================
+
+local function setupCharacter(char)
+	character = char
+	humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+	humanoid = character:WaitForChild("Humanoid")
+	
+	disableFly()
+	isFleeing = false
+	detected = {}
+	
+	task.wait(0.2)
+	createCircle()
+end
+
+if player.Character then
+	setupCharacter(player.Character)
+end
+
+player.CharacterAdded:Connect(setupCharacter)
+
+-- ========================================
+-- LOOP PRINCIPAL
+-- ========================================
+
+RunService.Heartbeat:Connect(function()
+	if not _G.hitboxDetectorAtivo then return end
+	if not humanoidRootPart then return end
+	
+	updateCircle()
+	
+	if tick() - lastCheck >= CHECK_INTERVAL then
+		lastCheck = tick()
+		checkDetection()
+	end
+end)
+
+-- CLEANUP
+game:GetService("Players").PlayerRemoving:Connect(function(plr)
+	if plr == player then
+		disableFly()
+		if circlePart then
+			circlePart:Destroy()
+		end
+	end
+end)
